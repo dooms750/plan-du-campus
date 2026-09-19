@@ -1,0 +1,19 @@
+{
+  "name": "Plan du campus — Università di Corsica",
+  "short_name": "Campus",
+  "description": "Plan en relief des campus de l'Università di Corsica à Corte : itinéraire à pied ou en voiture depuis votre position, sans connexion.",
+  "lang": "fr",
+  "dir": "ltr",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#090d0f",
+  "theme_color": "#090d0f",
+  "categories": ["education", "navigation", "travel"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
