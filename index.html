@@ -354,6 +354,21 @@
   .note.visible { opacity: 1; transform: none; }
   .note strong { font-family: var(--display); font-size: 16px; font-weight: 600; line-height: 1.2; }
   .note .meta { font-size: 11.5px; color: var(--ink-dim); line-height: 1.45; }
+  .note-more {
+    appearance: none;
+    justify-self: start;
+    background: none;
+    border: 0;
+    padding: 1px 0 0;
+    margin: -1px 0 1px;
+    color: var(--teal);
+    font: inherit;
+    font-size: 11.5px;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .note-more:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
 
   /* ---------- itinéraire ---------- */
   .route-box {
@@ -736,6 +751,14 @@
     .sheet[data-state="mini"] .route-bar { display: flex; }
     .rb-ic { width: 26px; height: 26px; flex: 0 0 auto; color: var(--teal); }
     .rb-main { display: grid; gap: 1px; min-width: 0; flex: 1 1 auto; }
+    .rb-nom {
+      font-size: 15px;
+      font-weight: 600;
+      line-height: 1.15;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
     .rb-time {
       font-family: var(--mono);
       font-size: 19px;
@@ -789,14 +812,21 @@
     /* en aperçu, les pastilles passent au-dessus de la fiche : elles restent
        accessibles sans ouvrir la feuille */
     .sheet[data-state="peek"] #slotNav { order: -1; padding-bottom: 8px; }
-    .sheet[data-state="peek"] .note .meta,
     .sheet[data-state="peek"] .trip,
     .sheet[data-state="peek"] .route-hint,
     .sheet[data-state="peek"] .route-head { display: none; }
+    /* la description reste lisible dès l'aperçu : c'est elle qui dit à quoi
+       sert le bâtiment qu'on vient de toucher */
+    .sheet[data-state="peek"] .note .meta { -webkit-line-clamp: 3; }
+    .sheet[data-state="open"] .note .meta { -webkit-line-clamp: 14; }
     .sheet[data-state="peek"] #slotNote .note { margin-bottom: 8px; }
 
     /* le chercheur reste la première chose visible dans la feuille */
     .sheet[data-state="peek"] #slotFind { order: -3; }
+    /* une fois un lieu choisi, l'aperçu ne montre plus que sa fiche : le
+       menu et la recherche réapparaissent d'un glissé vers le haut */
+    .sheet[data-state="peek"][data-fiche="1"] #slotFind,
+    .sheet[data-state="peek"][data-fiche="1"] #slotNav { display: none; }
     #slotFind .finder { padding: 8px 12px 9px; border-bottom: 0; }
     #slotFind #find { font-size: 16px; padding: 11px 0 12px; }   /* 16 px : iOS ne zoome pas */
     #slotFind .cat-chip { font-size: 12.5px; padding: 7px 13px 8px; }
@@ -884,6 +914,8 @@
     .sheet .mode-ic { width: 24px; height: 24px; }
     .sheet .go { padding: 13px 14px; font-size: 14.5px; }
     .sheet .prof-wrap, .sheet .prof { height: 40px; }
+    .sheet .note-more { font-size: 12.5px; padding: 4px 0 2px; }
+    .sheet[data-state="open"] .note-more { display: none; }
     .sheet .sun { flex: 1 1 100%; }
     .sheet input[type="range"] { flex: 1 1 auto; width: auto; height: 3px; }
     .sheet input[type="range"]::-webkit-slider-thumb { width: 20px; height: 20px; }
@@ -1038,10 +1070,10 @@ img { max-width: 100%; } [hidden] { display: none !important; }</style>
   <p id="loadNote">Ouverture de la vallée…</p>
 </div>
 
-<script src="data.js?v12"></script>
-<script src="core.js?v12"></script>
-<script src="build.js?v12"></script>
-<script src="app.js?v12"></script>
+<script src="data.js?v14"></script>
+<script src="core.js?v14"></script>
+<script src="build.js?v14"></script>
+<script src="app.js?v14"></script>
 
 <script>
   /* Filet de sécurité. Un service worker d'une version antérieure peut
@@ -1051,7 +1083,7 @@ img { max-width: 100%; } [hidden] { display: none !important; }</style>
      portent bien la version attendue ; sinon elle se purge et recharge,
      une seule fois par session pour ne jamais boucler. */
   (function () {
-    var attendue = 'v12';
+    var attendue = 'v14';
     addEventListener('load', function () {
       setTimeout(function () {
         if (window.__PDC_BUILD === attendue) return;

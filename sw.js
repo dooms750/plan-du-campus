@@ -12,7 +12,7 @@
  * à l'activation.
  */
 
-const VERSION = 'v12';
+const VERSION = 'v14';
 const SHELL = `plan-du-campus-${VERSION}`;
 const RUNTIME = `plan-du-campus-runtime-${VERSION}`;
 

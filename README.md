@@ -30,6 +30,7 @@ Vous arrivez à Corte et vous cherchez votre premier cours.
 |---|---|
 | `desanti`, `conrad`, `alfonsi`, `culombu` | les bâtiments de l'université, par leur nom |
 | `RU`, `BU`, `IUT`, `CROUS`, `INSPÉ`, `IAE`, `FST` | les sigles du quotidien |
+| `palazzu`, `présidence`, `silex`, `padoue` | le Palazzu Naziunale et la caserne Padoue, par l'un ou l'autre de leurs noms |
 | `amphi`, `B204` | les salles, si la scolarité a rempli l'annuaire (voir plus bas) |
 | `courses`, `pain`, `retrait`, `pharmacie` | par besoin, pas seulement par nom |
 | `gare`, `bus`, `parking` | les transports |

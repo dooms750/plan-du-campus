@@ -848,7 +848,9 @@ void main(){}`;
     [/Faculté de droit/i, 'droit fac licence'],
     [/Faculté des lettres/i, 'lettres langues shs fac licence'],
     [/Faculté des sciences/i, 'sciences fst fac licence'],
-    [/^Médiathèque/i, 'mediatheque bibliotheque livres']
+    [/^Médiathèque/i, 'mediatheque bibliotheque livres'],
+    [/^Palazzu Naziunale$/i, 'palazzu naziunale palais national presidence president direction administration siege'],
+    [/^Caserne Padoue$/i, 'silex caserne padoue padua casarma innovation incubateur entreprises']
   ];
   const ALIAS_GENRE = {
     biblio: 'bibliotheque livres travailler', resto: 'manger dejeuner diner',
@@ -879,7 +881,9 @@ void main(){}`;
     [/Faculté des sciences/i, ['fst']],
     [/Institut universitaire de santé/i, ['ius']],
     [/^Paoli Tech/i, ['paolitech']],
-    [/Halle des sports/i, ['halle']]
+    [/Halle des sports/i, ['halle']],
+    [/^Caserne Padoue$/i, ['silex', 'padoue']],
+    [/^Palazzu Naziunale$/i, ['palazzu', 'presidence']]
   ];
   const siglesFor = (name) => {
     for (const [re, codes] of SIGLES) if (re.test(name)) return codes;
@@ -911,12 +915,17 @@ void main(){}`;
     for (const p of places) {
       index.push({ id: p.id, name: p.name, sub: p.sub || 'Corte', cat: 'e', kind: 'site',
         x: p.x, y: p.y, uni: 2,
-        key: fold(p.name + ' ' + (p.sub || '') + ' ' + aliasFor(p.name, 'univ') + ' campus'),
+        key: fold(p.name + ' ' + (p.sub || '') + ' ' + (p.alt || '') + ' '
+                  + aliasFor(p.name, 'univ') + ' campus'),
         codes: siglesFor(p.name), place: p });
       objById.set(p.id, p);
     }
     const pois = CORTE_DATA.pois || [];
-    const dejaListes = new Set(places.map(p => fold(p.name)));
+    const dejaListes = new Set();
+    for (const p of places) {
+      dejaListes.add(fold(p.name));
+      for (const a of String(p.alt || '').split('·')) if (a.trim()) dejaListes.add(fold(a.trim()));
+    }
     pois.forEach((r, i) => {
       const [x, y, c, kind, name, uni] = r;
       const label = name || KIND_LABEL[kind] || 'Lieu';
@@ -1099,6 +1108,7 @@ void main(){}`;
     document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('is-active'));
     const note = document.getElementById('placeNote');
     if (note) note.classList.remove('visible');
+    sheet.dataset.fiche = '0';
     foldRail(false);
     if (phoneLayout && sheet.dataset.state === 'mini') setSheet('peek');
   }
@@ -1296,7 +1306,7 @@ void main(){}`;
     if (reframe) frameRoute(dest);
     // le tracé vient d'apparaître : on efface le menu pour le laisser voir
     if (reframe) {
-      if (phoneLayout) setSheet('mini');
+      if (phoneLayout) setSheet('peek');
       else foldRail(true);
     } else if (phoneLayout && sheet.dataset.state === 'mini') {
       renderRouteBar();
@@ -1326,7 +1336,8 @@ void main(){}`;
     const el = document.getElementById('placeNote');
     if (!el) return;
     let html = `<span class="eyebrow">${p.sub || 'Corte'}</span><strong>${p.name}</strong>`;
-    if (p.note) html += `<span class="meta">${p.note}</span>`;
+    if (p.note) html += `<span class="meta">${p.note}</span>` +
+      `<button class="note-more" type="button" hidden>Lire la suite</button>`;
 
     if (nav.results && nav.results.to === p.id && nav.info) {
       const i = nav.info;
@@ -1385,10 +1396,24 @@ void main(){}`;
 
     el.innerHTML = html;
     el.classList.add('visible');
+    sheet.dataset.fiche = '1';
     const b = document.getElementById('btnClearRoute');
     if (b) b.addEventListener('click', clearRoute);
     const g = document.getElementById('btnGoLocate');
     if (g) g.addEventListener('click', locateMe);
+
+    /* « Lire la suite » n'apparaît que si le texte est réellement tronqué :
+       inutile de proposer d'ouvrir la feuille pour deux lignes. */
+    const meta = el.querySelector('.meta');
+    const more = el.querySelector('.note-more');
+    if (meta && more) {
+      more.addEventListener('click', () => setSheet('open'));
+      requestAnimationFrame(() => {
+        const tronque = phoneLayout && sheet.dataset.state !== 'open'
+          && meta.scrollHeight > meta.clientHeight + 2;
+        more.hidden = !tronque;
+      });
+    }
     if (phoneLayout) requestAnimationFrame(placeFab);
     el.querySelectorAll('.mode').forEach(btn =>
       btn.addEventListener('click', () => setMode(btn.dataset.mode, p)));
@@ -1826,7 +1851,7 @@ void main(){}`;
   }
 
   function setSheet(state) {
-    if (state === 'mini' && !(nav.results && nav.info)) state = 'peek';
+    if (state === 'mini' && !(nav.results && nav.info) && !state_fiche()) state = 'peek';
     sheet.dataset.state = state;
     document.getElementById('sheetGrip').setAttribute('aria-expanded', String(state === 'open'));
     document.body.classList.toggle('sheet-open', state === 'open');
