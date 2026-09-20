@@ -12,21 +12,33 @@
  * à l'activation.
  */
 
-const VERSION = 'v11';
+const VERSION = 'v12';
 const SHELL = `plan-du-campus-${VERSION}`;
 const RUNTIME = `plan-du-campus-runtime-${VERSION}`;
 
 /* data.js pèse 210 Ko : c'est le gros morceau, et c'est justement lui
-   qu'on ne veut pas retélécharger. */
+   qu'on ne veut pas retélécharger.
+ *
+ * Les scripts portent la version dans leur adresse (app.js?v12). C'est ce
+ * qui garantit qu'une page fraîche ne puisse jamais être servie avec
+ * d'anciens scripts : la nouvelle page demande des adresses que l'ancien
+ * cache ne contient pas, donc elles viennent du réseau. Sans cela, la page
+ * HTML (servie réseau d'abord) et les scripts (servis cache d'abord) se
+ * désynchronisent et l'utilisateur reste bloqué sur l'ancienne version.
+ * C'est pourquoi la mise en cache compare l'adresse complète, requête
+ * comprise — pas d'ignoreSearch ici. */
 const ASSETS = [
   './',
   'index.html',
-  'data.js',
-  'core.js',
-  'build.js',
-  'app.js',
-  'manifest.webmanifest',
+  `data.js?${VERSION}`,
+  `core.js?${VERSION}`,
+  `build.js?${VERSION}`,
+  `app.js?${VERSION}`,
+  /* salles.json est demandé sans version par l'application : on le garde
+     tel quel. Aucun risque de péremption, le cache entier est reconstruit
+     à chaque changement de VERSION. */
   'salles.json',
+  'manifest.webmanifest',
   'icons/icon-192.png',
   'icons/icon-512.png',
   'icons/icon-maskable-512.png',
@@ -65,7 +77,13 @@ self.addEventListener('fetch', (e) => {
   // navigation : on tente le réseau, on retombe sur la page en cache
   if (req.mode === 'navigate') {
     e.respondWith(
-      fetch(req).catch(() => caches.match('index.html', { ignoreSearch: true }))
+      fetch(req)
+        .then(res => {
+          const copie = res.clone();
+          caches.open(SHELL).then(c => c.put('index.html', copie)).catch(() => {});
+          return res;
+        })
+        .catch(() => caches.match('index.html', { ignoreSearch: true }))
     );
     return;
   }
@@ -82,10 +100,10 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // coque : cache d'abord
+  // coque : cache d'abord, adresse exacte (la version est dans la requête)
   if (url.origin === location.origin) {
     e.respondWith(
-      caches.match(req, { ignoreSearch: true }).then(hit => hit || fetch(req).then(res => {
+      caches.match(req).then(hit => hit || fetch(req).then(res => {
         if (res.ok) {
           const copy = res.clone();
           caches.open(SHELL).then(c => c.put(req, copy)).catch(() => {});

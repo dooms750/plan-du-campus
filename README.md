@@ -85,9 +85,22 @@ Servir `sw.js` depuis la racine du site, sinon la portée du service worker ne c
 
 ### Après une modification
 
-Le service worker sert la coque depuis le cache. Pour que les visiteurs reçoivent la nouvelle
-version, **incrémenter `VERSION` en tête de `sw.js`** (`v10` → `v11`) dans le même commit.
-L'ancien cache est purgé à l'activation.
+**Incrémenter `VERSION` en tête de `sw.js`** (`v12` → `v13`), puis régénérer la page avec
+l'outil de construction. C'est le seul geste à retenir : la version se propage ensuite toute
+seule dans les adresses des scripts (`app.js?v13`) et dans le marqueur que la page relit.
+
+Trois mécanismes se relaient pour qu'un téléphone déjà installé reçoive la mise à jour **au
+premier réveil de l'application**, sans manipulation :
+
+| Mécanisme | Rôle |
+|---|---|
+| version dans l'adresse des scripts | la nouvelle page demande `app.js?v13` : l'ancien cache ne l'a pas, le fichier vient du réseau. Fini la page neuve servie avec d'anciens scripts |
+| `skipWaiting` + `clients.claim` + rechargement sur `controllerchange` | le nouveau service worker prend la main sans attendre, et la page se recharge une fois, automatiquement |
+| marqueur `window.__PDC_BUILD` | filet de sécurité : si les scripts chargés ne portent pas la version attendue — un ancien service worker peut ignorer la requête dans l'adresse — la page se purge et recharge, une seule fois par session |
+
+Le dernier point n'est pas théorique : les versions antérieures à `v12` comparaient les adresses
+en ignorant la requête, et retenaient donc leurs anciens fichiers malgré le `?v12`. Sans ce
+filet, un appareil installé serait resté bloqué sur la version précédente.
 
 ### Remplir l'annuaire des salles
 

@@ -1038,15 +1038,59 @@ img { max-width: 100%; } [hidden] { display: none !important; }</style>
   <p id="loadNote">Ouverture de la vallée…</p>
 </div>
 
-<script src="data.js"></script>
-<script src="core.js"></script>
-<script src="build.js"></script>
-<script src="app.js"></script>
+<script src="data.js?v12"></script>
+<script src="core.js?v12"></script>
+<script src="build.js?v12"></script>
+<script src="app.js?v12"></script>
 
 <script>
-  if ('serviceWorker' in navigator && location.protocol === 'https:') {
-    addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js').catch(() => {});
+  /* Filet de sécurité. Un service worker d'une version antérieure peut
+     resservir ses anciens scripts à une page fraîche — les premières
+     versions comparaient les adresses en ignorant la requête, ce qui
+     annule le « ?v12 ». La page vérifie donc que les scripts chargés
+     portent bien la version attendue ; sinon elle se purge et recharge,
+     une seule fois par session pour ne jamais boucler. */
+  (function () {
+    var attendue = 'v12';
+    addEventListener('load', function () {
+      setTimeout(function () {
+        if (window.__PDC_BUILD === attendue) return;
+        try { if (sessionStorage.getItem('pdc-soin') === attendue) return; } catch (e) {}
+        try { sessionStorage.setItem('pdc-soin', attendue); } catch (e) {}
+        var fini = function () { location.reload(); };
+        if (!('serviceWorker' in navigator)) return fini();
+        navigator.serviceWorker.getRegistrations()
+          .then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); })
+          .then(function () { return caches.keys(); })
+          .then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); })
+          .then(fini, fini);
+      }, 1200);
+    });
+  })();
+</script>
+<script>
+  /* isSecureContext plutôt que le protocole : vrai en HTTPS comme sur
+     localhost, ce qui permet au service informatique d'essayer le mode
+     hors ligne sans déployer. */
+  if ('serviceWorker' in navigator && window.isSecureContext) {
+    /* Une page déjà contrôlée par un ancien service worker continuerait de
+       tourner sur l'ancienne version jusqu'à la fois suivante. On recharge
+       donc une fois, automatiquement, quand le nouveau prend la main — mais
+       seulement s'il y en avait déjà un, sinon la toute première visite se
+       rechargerait pour rien. */
+    var dejaControle = !!navigator.serviceWorker.controller;
+    var enCours = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (!dejaControle || enCours) return;
+      enCours = true;
+      location.reload();
+    });
+    addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').then(function (reg) {
+        reg.update().catch(function () {});
+        // l'application reste ouverte des heures : on revérifie de loin en loin
+        setInterval(function () { reg.update().catch(function () {}); }, 30 * 60 * 1000);
+      }).catch(function () {});
     });
   }
 </script>
