@@ -12,7 +12,7 @@
  * à l'activation.
  */
 
-const VERSION = 'v10';
+const VERSION = 'v11';
 const SHELL = `plan-du-campus-${VERSION}`;
 const RUNTIME = `plan-du-campus-runtime-${VERSION}`;
 
@@ -26,6 +26,7 @@ const ASSETS = [
   'build.js',
   'app.js',
   'manifest.webmanifest',
+  'salles.json',
   'icons/icon-192.png',
   'icons/icon-512.png',
   'icons/icon-maskable-512.png',

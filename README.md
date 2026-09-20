@@ -3,24 +3,36 @@
 Plan en relief des campus de l'**Università di Corsica Pasquale Paoli**, à Corte.
 Une page web, aucun serveur applicatif, aucun compte, aucune publicité, aucun traqueur.
 
-👉 **[Ouvrir le plan](https://VOTRE-COMPTE.github.io/plan-du-campus/)**
-
-<!-- Remplacer VOTRE-COMPTE par le compte GitHub qui héberge le dépôt, ici et
-     dans la section « Mise en ligne ». -->
+👉 **[Ouvrir le plan](https://dooms750.github.io/plan-du-campus/)**
 
 ---
 
 ## Pour les étudiants
 
-- **Trouver un campus** — Mariani, Grimaldi, l'IUT, le Spaziu Natale Luciani, le CROUS,
-  le bâtiment Edmond Simeoni, la citadelle : la liste du bas, ou une tape directement sur
-  le bâtiment dans le plan.
-- **Savoir combien de temps ça prend** — durée à pied *et* en voiture côte à côte, distance,
+Vous arrivez à Corte et vous cherchez votre premier cours.
+
+- **Cherchez un nom.** « Desanti », « RU », « BU », « IUT », « gare », « courses » : le champ de
+  recherche connaît les bâtiments universitaires, les sigles, et 150 lieux de la ville. Pas besoin
+  des accents ni de l'orthographe exacte — « batiment desanti » suffit.
+- **Touchez un bâtiment sur le plan.** Il s'ouvre, avec son nom et sa description.
+- **Filtrez ce que vous voyez.** Université, Manger, Se déplacer, Services, Sport, Vivre :
+  les noms s'affichent sur le plan par catégorie.
+- **Savoir combien de temps ça prend.** Durée à pied *et* en voiture côte à côte, distance,
   dénivelé, heure d'arrivée. À Corte, le dénivelé n'est pas un détail.
-- **Poser un départ où l'on veut** — gardez le doigt appuyé une demi-seconde sur le plan.
+- **Poser un départ où l'on veut.** Gardez le doigt appuyé une demi-seconde sur le plan.
   Ou touchez le bouton de position pour partir d'où vous êtes.
-- **Sans réseau** — une fois la page ouverte, tout est en mémoire : le relief, les rues, les
-  bâtiments. Elle fonctionne dans un amphi, dans le train, dans la vallée.
+- **Sans réseau.** Une fois la page ouverte, tout est en mémoire : le relief, les rues, les
+  bâtiments, les 150 lieux. Elle fonctionne dans un amphi, dans le train, dans la vallée.
+
+### Ce que la recherche connaît
+
+| Vous tapez | Vous trouvez |
+|---|---|
+| `desanti`, `conrad`, `alfonsi`, `culombu` | les bâtiments de l'université, par leur nom |
+| `RU`, `BU`, `IUT`, `CROUS`, `INSPÉ`, `IAE`, `FST` | les sigles du quotidien |
+| `amphi`, `B204` | les salles, si la scolarité a rempli l'annuaire (voir plus bas) |
+| `courses`, `pain`, `retrait`, `pharmacie` | par besoin, pas seulement par nom |
+| `gare`, `bus`, `parking` | les transports |
 
 ### L'installer sur son téléphone
 
@@ -46,7 +58,7 @@ depuis Google Fonts, que l'on peut supprimer (voir plus bas).
 ### Essayer en local
 
 ```bash
-git clone https://github.com/VOTRE-COMPTE/plan-du-campus.git
+git clone https://github.com/dooms750/plan-du-campus.git
 cd plan-du-campus
 python3 -m http.server 8080      # n'importe quel serveur statique fait l'affaire
 # puis http://localhost:8080/
@@ -65,7 +77,7 @@ Le dépôt est déjà prêt : les fichiers servis sont à la racine.
 2. *Source* : **Deploy from a branch**
 3. *Branch* : `main`, dossier `/ (root)` → **Save**
 
-Une minute plus tard, le plan est en ligne sur `https://VOTRE-COMPTE.github.io/plan-du-campus/`.
+Une minute plus tard, le plan est en ligne sur `https://dooms750.github.io/plan-du-campus/`.
 La géolocalisation et l'installation sur l'écran d'accueil exigent HTTPS : Pages le fournit.
 
 Pour héberger ailleurs (Apache, nginx, un bucket S3, un intranet), copier le dossier tel quel.
@@ -76,6 +88,38 @@ Servir `sw.js` depuis la racine du site, sinon la portée du service worker ne c
 Le service worker sert la coque depuis le cache. Pour que les visiteurs reçoivent la nouvelle
 version, **incrémenter `VERSION` en tête de `sw.js`** (`v10` → `v11`) dans le même commit.
 L'ancien cache est purgé à l'activation.
+
+### Remplir l'annuaire des salles
+
+C'est l'attente la plus fréquente d'un étudiant de première année : « je cherche la B204 ».
+Cette information n'existe dans aucune base publique — elle est chez vous. Le fichier
+`salles.json` est prévu pour la recevoir, et l'application fonctionne sans.
+
+Une salle se décrit en cinq champs, dont deux obligatoires :
+
+```json
+{ "code": "B204", "batiment": "Bâtiment Jean-Toussaint Desanti",
+  "nom": "Salle de travaux dirigés", "etage": 2, "info": "Accès par la cour" }
+```
+
+`batiment` doit reprendre un nom de la liste `_batiments` figurant en tête de `salles.json`
+(les 23 bâtiments relevés dans OpenStreetMap). Une salle rattachée à un bâtiment inconnu ne
+sera pas trouvable.
+
+Depuis un tableur, exportez en CSV et lancez :
+
+```bash
+node tools/salles-csv.mjs salles.csv --verifier   # contrôle, n'écrit rien
+node tools/salles-csv.mjs salles.csv              # écrit salles.json
+```
+
+Le script accepte les en-têtes en français avec ou sans accents, détecte le séparateur d'un
+export Excel français, et signale les bâtiments qu'il ne reconnaît pas. Pensez ensuite à
+incrémenter `VERSION` dans `sw.js`.
+
+Pour voir à quoi ressemble la fonction avant d'avoir les vraies données, `salles.exemple.json`
+contient trois salles fictives : mettez `salles.json` de côté, renommez l'exemple, rechargez.
+**Ne pas mettre ce fichier d'exemple en production** — il décrirait des salles qui n'existent pas.
 
 ### Ajouter ou corriger un site
 
@@ -109,9 +153,12 @@ parfaitement lisible hors ligne, simplement avec une autre typographie.
 | `core.js` | mathématiques 4×4, utilitaires WebGL, décodage binaire, triangulation |
 | `build.js` | construction des maillages et du graphe d'itinéraire |
 | `app.js` | nuanceurs GLSL, carte d'ombre, boucle de rendu, caméra, interactions |
+| `salles.json` | annuaire des salles, tenu par l'établissement (vide au départ) |
+| `salles.exemple.json` | même format, avec trois salles fictives pour essayer |
 | `sw.js`, `manifest.webmanifest`, `icons/` | installation et fonctionnement hors ligne |
 | `tools/build-data.mjs` | régénère `data.js` depuis OpenStreetMap et les tuiles d'élévation |
 | `tools/routecheck.mjs` | banc d'essai du calcul d'itinéraire, hors navigateur |
+| `tools/salles-csv.mjs` | convertit un export CSV de la scolarité en `salles.json` |
 | `docs/ARCHITECTURE.md` | notes techniques détaillées |
 
 Aucune dépendance : pas de `package.json`, pas de `node_modules`, pas d'étape de compilation.

@@ -1,0 +1,35 @@
+{
+  "_lisezmoi": [
+    "EXEMPLE DE REMPLISSAGE — les salles ci-dessous sont inventées.",
+    "Elles ne décrivent aucune salle réelle de l'Università di Corsica et ne",
+    "servent qu'à montrer le format et à essayer la recherche.",
+    "",
+    "Pour essayer : renommer ce fichier en salles.json (après avoir mis",
+    "l'original de côté), recharger la page, puis chercher « B204 » ou « amphi ».",
+    "Ne jamais mettre ce fichier en production tel quel."
+  ],
+
+  "salles": [
+    {
+      "code": "B204",
+      "nom": "Salle de travaux dirigés",
+      "batiment": "Bâtiment Jean-Toussaint Desanti",
+      "etage": 2,
+      "info": "Exemple — remplacer par les données réelles de la scolarité."
+    },
+    {
+      "code": "Amphi 1",
+      "nom": "Amphithéâtre",
+      "batiment": "Faculté des sciences et techniques",
+      "etage": 0,
+      "info": "Exemple — remplacer par les données réelles de la scolarité."
+    },
+    {
+      "code": "INFO-3",
+      "nom": "Salle informatique",
+      "batiment": "IUT di Corsica",
+      "etage": 1,
+      "info": "Exemple — remplacer par les données réelles de la scolarité."
+    }
+  ]
+}

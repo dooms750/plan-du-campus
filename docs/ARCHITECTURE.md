@@ -90,6 +90,48 @@ dans le tableau `places` de `data.js`, avec ses coordonnées `x`/`y` en mètres 
 
 ---
 
+## Recherche, catégories et salles
+
+L'index de recherche est construit au démarrage (`buildIndex`, `app.js`) à partir de trois
+sources : les sites du panneau, les 150 lieux repris d'OpenStreetMap (`CORTE_DATA.pois`) et
+l'annuaire des salles (`salles.json`, facultatif).
+
+**Repli des accents.** Chaque entrée porte une clé `key` normalisée en NFD, diacritiques
+supprimés, en minuscules : « batiment desanti » trouve « Bâtiment Jean-Toussaint Desanti ».
+
+**Alias.** Un étudiant tape « RU », pas « Restaurant Universitaire ». Deux tables les couvrent :
+`ALIAS_NOM` pour les lieux précis, `ALIAS_GENRE` par genre (`distributeur` répond à « retrait »,
+« argent », « billets »). Les alias entrent dans la clé mais ne s'affichent jamais.
+
+**Classement.** Le score additionne la position du mot dans la clé (début de chaîne 100, début de
+mot 70, ailleurs 30), un bonus universitaire, et surtout un bonus de 600 quand la frappe est
+exactement un sigle connu — sans quoi « bu » remonterait l'IUT (« but ») avant la bibliothèque.
+
+**Catégories.** Six groupes (`CATS`) filtrent les étiquettes affichées sur le plan, pas la
+recherche, qui porte toujours sur tout. La catégorie « Université » est active au démarrage.
+
+**Étiquettes des lieux.** Elles entrent dans la même passe de dé-chevauchement que les sites,
+avec une priorité inférieure : un nom de boulangerie ne masquera jamais un campus. Les bâtiments
+universitaires restent lisibles jusqu'à 2,6 km, les commerces n'apparaissent qu'en dessous
+de 1 km — sinon la vallée entière se couvre de noms.
+
+**Format des lieux.** `CORTE_DATA.pois` est un tableau de tableaux, pour tenir en 7 Ko :
+
+```js
+[x, y, categorie, genre, nom, universitaire]
+// [-27, -212, "e", "biblio", "Bibliothèque universitaire", 1]
+```
+
+`x` et `y` sont en mètres entiers depuis l'origine de la scène ; `categorie` vaut `e`, `m`, `b`,
+`s`, `l` ou `v` ; `genre` sert à l'intitulé et aux alias.
+
+**Salles.** `salles.json` est chargé par `fetch` au démarrage. Absent, illisible, ou page ouverte
+en `file://` : la promesse est capturée et la recherche porte alors sur les bâtiments seuls.
+Chaque salle est rattachée à son bâtiment par son nom, et hérite de ses coordonnées — l'itinéraire
+mène donc au bâtiment, l'étage étant donné dans la fiche.
+
+---
+
 ## Format du jeu de données
 
 `data.js` définit `window.CORTE_DATA` :

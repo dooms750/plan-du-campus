@@ -1,0 +1,46 @@
+{
+  "_lisezmoi": [
+    "Annuaire des salles de l'Università di Corsica — à remplir par la scolarité.",
+    "Tant que « salles » est vide, la recherche porte sur les bâtiments seuls ;",
+    "l'application fonctionne normalement.",
+    "",
+    "Une entrée par salle :",
+    "  code     obligatoire — ce que l'étudiant lit sur son emploi du temps (B204, Amphi 1…)",
+    "  batiment obligatoire — doit correspondre à un nom de bâtiment du plan,",
+    "                         voir la liste « _batiments » ci-dessous",
+    "  nom      facultatif  — intitulé usuel (Amphithéâtre Ribellu, salle informatique…)",
+    "  etage    facultatif  — 0 pour le rez-de-chaussée, 1, 2… pour les étages",
+    "  info     facultatif  — une phrase : accès, capacité, équipement",
+    "",
+    "Exemple complet dans salles.exemple.json. Pour partir d'un tableur,",
+    "exporter en CSV puis lancer : node tools/salles-csv.mjs salles.csv"
+  ],
+
+  "_batiments": [
+    "Bâtiment Bonfiglio Guelfucci",
+    "Bâtiment Culombu",
+    "Bâtiment de Droit, Economie et Gestion",
+    "Bâtiment Docteur Edmond Simeoni",
+    "Bâtiment Dumenicu Alfonsi",
+    "Bâtiment Jean-Toussaint Desanti",
+    "Bâtiment Marcelle Conrad",
+    "Bâtiment Patrick Pozzo Di Borgo",
+    "Bâtiment Robert Alberti",
+    "Bibliothèque universitaire",
+    "Campus Grimaldi",
+    "Campus Mariani",
+    "École de Management et d'économie IAE",
+    "Faculté de droit et sciences sociales",
+    "Faculté des lettres et sciences humaines",
+    "Faculté des sciences et techniques",
+    "Halle des sports Raymond Montet",
+    "INSPÉ · professorat et éducation",
+    "Institut universitaire de santé",
+    "IUT di Corsica",
+    "Palais National",
+    "Paoli Tech · école d’ingénieurs",
+    "Spaziu Natale Luciani"
+  ],
+
+  "salles": []
+}

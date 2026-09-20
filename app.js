@@ -800,6 +800,179 @@ void main(){}`;
     requestAnimationFrame(frame);
   }
 
+  /* ================= recherche et catégories =================
+     Un étudiant de première année ne cherche pas « un campus », il cherche
+     « Desanti », « le RU », « la BU ». L'index couvre donc les sites, les
+     150 lieux repris d'OpenStreetMap et l'annuaire des salles. */
+
+  const CATS = [
+    { id: 'e', label: 'Université', hint: 'Bâtiments, facultés, BU' },
+    { id: 'm', label: 'Manger',     hint: 'RU, supermarchés, restaurants' },
+    { id: 'b', label: 'Se déplacer',hint: 'Gare, bus, parkings' },
+    { id: 's', label: 'Services',   hint: 'Santé, banque, poste, administration' },
+    { id: 'l', label: 'Sport',      hint: 'Halle, piscine, salles' },
+    { id: 'v', label: 'Vivre',      hint: 'Logement étudiant, laverie' }
+  ];
+  const KIND_LABEL = {
+    univ: 'Bâtiment universitaire', biblio: 'Bibliothèque', ecole: 'École', cowork: 'Espace de travail',
+    librairie: 'Librairie', resto: 'Restaurant', rapide: 'Restauration rapide',
+    boulangerie: 'Boulangerie', supermarche: 'Supermarché', epicerie: 'Épicerie',
+    primeur: 'Primeur', boucher: 'Boucherie', social: 'Logement étudiant', laverie: 'Laverie',
+    bus: 'Arrêt de bus', quai: 'Quai', gare: 'Gare', parking: 'Parking', velo: 'Parking à vélos',
+    carburant: 'Station-service', pharmacie: 'Pharmacie', medecin: 'Médecin', clinique: 'Clinique',
+    hopital: 'Hôpital', banque: 'Banque', distributeur: 'Distributeur', poste: 'La Poste',
+    police: 'Gendarmerie', mairie: 'Mairie', administration: 'Administration',
+    toilettes: 'Toilettes', eau: 'Point d’eau', sport: 'Sport', stade: 'Stade', cinema: 'Cinéma'
+  };
+
+  /* Sans accents et sans casse : « batiment desanti » doit trouver
+     « Bâtiment Jean-Toussaint Desanti ». */
+  const fold = (s) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+  /* Un étudiant tape « RU », pas « Restaurant Universitaire ». Ces alias
+     s'ajoutent à la clé de recherche ; ils ne s'affichent jamais. */
+  const ALIAS_NOM = [
+    [/^Restaurant Universitaire$/i, 'ru restau u resto u cantine cafeteria self manger midi'],
+    [/^Bibliothèque universitaire$/i, 'bu biblio bibli travailler reviser silence'],
+    [/CROUS/i, 'crous bourse logement dossier social aide'],
+    [/Halle des sports/i, 'gymnase sport eps halle musculation'],
+    [/Spaziu/i, 'spaziu culture associations vie etudiante concert'],
+    [/^IUT di Corsica$/i, 'iut technologie dut but'],
+    [/^Paoli Tech/i, 'paolitech ingenieur ingenieurs'],
+    [/^INSPÉ/i, 'inspe espe professorat enseignement master meef'],
+    [/^Casa studientina$/i, 'residence logement chambre cite universitaire crous'],
+    [/^Sambucucciu/i, 'residence logement chambre cite universitaire crous'],
+    [/^Palais National$/i, 'musee patrimoine histoire paoli'],
+    [/Institut universitaire de santé/i, 'ius sante infirmier soins'],
+    [/École de Management/i, 'iae management economie gestion'],
+    [/Faculté de droit/i, 'droit fac licence'],
+    [/Faculté des lettres/i, 'lettres langues shs fac licence'],
+    [/Faculté des sciences/i, 'sciences fst fac licence'],
+    [/^Médiathèque/i, 'mediatheque bibliotheque livres']
+  ];
+  const ALIAS_GENRE = {
+    biblio: 'bibliotheque livres travailler', resto: 'manger dejeuner diner',
+    rapide: 'manger snack sandwich kebab pizza', boulangerie: 'pain viennoiserie petit dejeuner',
+    supermarche: 'courses supermarche alimentation', epicerie: 'courses depannage alimentation',
+    primeur: 'fruits legumes courses', boucher: 'viande courses',
+    distributeur: 'atm retrait argent liquide billets', banque: 'argent compte rib',
+    poste: 'courrier colis timbre lettre', pharmacie: 'medicament ordonnance',
+    hopital: 'urgences soins medecin', medecin: 'soins consultation',
+    bus: 'arret transport ligne', gare: 'train sncf cff transport',
+    quai: 'train transport', parking: 'voiture stationnement garer',
+    velo: 'velo bicyclette', carburant: 'essence gasoil station',
+    laverie: 'lessive linge machine laver', social: 'logement residence chambre',
+    sport: 'sport musculation fitness gym piscine', cinema: 'film seance',
+    eau: 'fontaine boire eau potable', toilettes: 'wc toilettes',
+    mairie: 'administration commune', police: 'gendarmerie securite',
+    administration: 'administration bureau service', cowork: 'travailler coworking bureau',
+    librairie: 'livres papeterie fournitures', ecole: 'formation ecole',
+    univ: 'universite fac cours amphi batiment'
+  };
+  const SIGLES = [
+    [/^Bibliothèque universitaire$/i, ['bu']],
+    [/^Restaurant Universitaire$/i, ['ru']],
+    [/^IUT di Corsica$/i, ['iut']],
+    [/CROUS/i, ['crous']],
+    [/^INSPÉ/i, ['inspe', 'espe']],
+    [/École de Management/i, ['iae']],
+    [/Faculté des sciences/i, ['fst']],
+    [/Institut universitaire de santé/i, ['ius']],
+    [/^Paoli Tech/i, ['paolitech']],
+    [/Halle des sports/i, ['halle']]
+  ];
+  const siglesFor = (name) => {
+    for (const [re, codes] of SIGLES) if (re.test(name)) return codes;
+    return null;
+  };
+  const aliasFor = (name, kind) => {
+    let a = ALIAS_GENRE[kind] || '';
+    for (const [re, mots] of ALIAS_NOM) if (re.test(name)) a += ' ' + mots;
+    return a;
+  };
+
+  let index = [];        // { id, name, sub, cat, kind, x, y, uni, key, place }
+  const objById = new Map();   // identifiant -> objet destination
+  let salles = [];       // annuaire fourni par l'établissement
+  let cat = 'e';         // catégorie affichée sur le plan
+  let query = '';
+
+  function poiPlace(e) {
+    return {
+      id: e.id, name: e.name, sub: e.sub, note: e.note || '',
+      kind: 'poi', x: e.x, y: e.y,
+      r: e.uni ? 300 : 340, phi: 0.42, theta: state.theta, lift: 22
+    };
+  }
+
+  function buildIndex() {
+    index = [];
+    objById.clear();
+    for (const p of places) {
+      index.push({ id: p.id, name: p.name, sub: p.sub || 'Corte', cat: 'e', kind: 'site',
+        x: p.x, y: p.y, uni: 2,
+        key: fold(p.name + ' ' + (p.sub || '') + ' ' + aliasFor(p.name, 'univ') + ' campus'),
+        codes: siglesFor(p.name), place: p });
+      objById.set(p.id, p);
+    }
+    const pois = CORTE_DATA.pois || [];
+    const dejaListes = new Set(places.map(p => fold(p.name)));
+    pois.forEach((r, i) => {
+      const [x, y, c, kind, name, uni] = r;
+      const label = name || KIND_LABEL[kind] || 'Lieu';
+      if (dejaListes.has(fold(label))) return;   // déjà dans la liste des sites
+      const e = { id: 'poi' + i, name: label, sub: KIND_LABEL[kind] || '', cat: c, kind,
+        x, y, uni: uni ? 1 : 0,
+        key: fold(label + ' ' + (KIND_LABEL[kind] || '') + ' ' + aliasFor(label, kind)),
+        codes: siglesFor(label) };
+      e.place = poiPlace(e);
+      objById.set(e.place.id, e.place);
+      index.push(e);
+    });
+    for (const s of salles) {
+      const bat = index.find(e => fold(e.name) === fold(s.batiment))
+        || index.find(e => fold(e.name).includes(fold(s.batiment)));
+      if (!bat) continue;
+      const etage = s.etage != null ? (s.etage === 0 ? 'rez-de-chaussée' : s.etage + 'e étage') : '';
+      index.push({ id: 'salle:' + s.code, name: s.code, cat: 'e', kind: 'salle',
+        sub: [s.nom, s.batiment, etage].filter(Boolean).join(' · '),
+        x: bat.x, y: bat.y, uni: 3,
+        key: fold(s.code + ' ' + (s.nom || '') + ' ' + s.batiment),
+        place: Object.assign({}, bat.place, {
+          id: 'salle:' + s.code, name: s.code,
+          sub: s.nom || 'Salle',
+          note: `Dans le ${s.batiment}${etage ? ', ' + etage : ''}.` + (s.info ? ' ' + s.info : '')
+        })
+      });
+      objById.set('salle:' + s.code, index[index.length - 1].place);
+    }
+  }
+
+  /* Classement : d'abord l'universitaire, puis le début du mot, puis
+     l'inclusion. Sans quoi « bu » remonterait vingt bars avant la BU. */
+  function search(q, limit) {
+    const f = fold(q).trim();
+    if (!f) return [];
+    const mots = f.split(/\s+/).filter(Boolean);
+    const res = [];
+    for (const e of index) {
+      let score = 0, ok = true;
+      for (const m of mots) {
+        const i = e.key.indexOf(m);
+        if (i < 0) { ok = false; break; }
+        score += i === 0 ? 100 : /[\s'’-]/.test(e.key[i - 1] || '') ? 70 : 30;
+      }
+      if (!ok) continue;
+      if (e.codes && e.codes.includes(f)) score += 600;
+      score += e.uni * 45;
+      if (e.kind === 'salle') score += 60;
+      score -= Math.min(20, e.name.length / 4);
+      res.push({ e, score });
+    }
+    res.sort((a, b) => b.score - a.score);
+    return res.slice(0, limit || 24).map(r => r.e);
+  }
+
   /* ---------- labels ---------- */
   const labelLayer = document.getElementById('labels');
   const labelEls = [];
@@ -828,6 +1001,26 @@ void main(){}`;
       labelLayer.appendChild(el);
       labelEls.push({ el, p });
     }
+    makePoiLabels();
+  }
+
+  /* Étiquettes des lieux de la catégorie choisie. Elles se placent dans la
+     même passe de dé-chevauchement que les sites, qui gardent la priorité :
+     un nom de restaurant ne masquera jamais un campus. */
+  let poiEls = [];
+  function makePoiLabels() {
+    for (const L of poiEls) L.el.remove();
+    poiEls = [];
+    if (!cat) return;
+    for (const e of index) {
+      if (e.kind === 'site' || e.kind === 'salle' || e.cat !== cat) continue;
+      const el = document.createElement('button');
+      el.className = 'lab lab-poi' + (e.uni ? ' lab-uni' : '');
+      el.innerHTML = `<span class="dot"></span><span class="txt">${e.name}</span>`;
+      el.addEventListener('click', () => flyTo(e.place));
+      labelLayer.appendChild(el);
+      poiEls.push({ el, p: Object.assign({ kind: 'poi', uni: e.uni }, e.place) });
+    }
   }
 
   function hideLabel(el) { el.style.opacity = '0'; el.style.pointerEvents = 'none'; }
@@ -835,7 +1028,7 @@ void main(){}`;
   function updateLabels(W, H, dpr) {
     const cw = W / dpr, ch = H / dpr;
     const cand = [];
-    const list = labelEls.slice();
+    const list = labelEls.concat(poiEls);
     if (nav.pos && meLabel) {
       meLabel.querySelector('.txt').textContent = nav.pos.source === 'gps' ? 'Vous êtes ici' : 'Départ';
       list.push({ el: meLabel, p: { x: nav.pos.x, y: nav.pos.y, kind: 'me', id: '__me' } });
@@ -853,14 +1046,20 @@ void main(){}`;
       const sy = (0.5 - tmp[1] / tmp[3] * 0.5) * ch;
       if (sx < -80 || sx > cw + 80 || sy < -20 || sy > ch + 40) { hideLabel(el); continue; }
       const d = Math.hypot(eye[0] - p.x, eye[1] - y, eye[2] + p.y);
-      const near = p.kind === 'place' ? 2000 : 9000;
+      /* Les bâtiments universitaires portent loin — c'est l'objet même de
+         l'application. Les commerces n'apparaissent qu'une fois la caméra
+         descendue, sinon la vallée se couvre de noms de boulangeries. */
+      const near = p.kind === 'poi' ? (p.uni ? 2400 : 950) : p.kind === 'place' ? 2000 : 9000;
+      const coupe = p.kind === 'poi' ? (p.uni ? 2600 : 1050) : p.kind === 'place' ? 2200 : 1e9;
       let op = clamp(1 - (d - near * 0.35) / near, 0, 1);
-      if (p.kind === 'place' && d > 2200) op = 0;
+      if (d > coupe) op = 0;
+      if (state.activePlace === p.id) op = 1;          // la destination reste lisible
       if (op <= 0.03) { hideLabel(el); continue; }
       if (!L.w) L.w = (el.offsetWidth || 96);
       cand.push({
         L, sx, sy, op, d,
-        pr: p.kind === 'me' ? -2 : (state.activePlace === p.id ? -1 : (p.kind === 'campus' ? 0 : 1))
+        pr: p.kind === 'me' ? -3 : (state.activePlace === p.id ? -2
+          : p.kind === 'campus' ? -1 : p.kind === 'poi' ? 2 : 1)
       });
     }
     cand.sort((a, b) => a.pr - b.pr || a.d - b.d);
@@ -946,7 +1145,7 @@ void main(){}`;
     /* Le GPS envoie un point par seconde : relancer deux A* à chaque fois
        saccade le rendu pour rien. On ne recalcule qu'au-delà de 25 m de
        dérive, et jamais plus d'une fois toutes les trois secondes. */
-    const dest = places.find(q => q.id === state.activePlace);
+    const dest = objById.get(state.activePlace);
     if (!dest) return;
     const now = performance.now();
     const drift = nav.lastSolve ? Math.hypot(nav.lastSolve.x - x, nav.lastSolve.y - y) : Infinity;
@@ -963,7 +1162,7 @@ void main(){}`;
     nav.info = null;
     nav.results = null;
     nav.fail = false;
-    const dest = places.find(q => q.id === state.activePlace);
+    const dest = objById.get(state.activePlace);
     if (dest) renderNote(dest);
     renderRouteBar();
     if (phoneLayout && sheet.dataset.state === 'mini') setSheet('peek');
@@ -1042,7 +1241,7 @@ void main(){}`;
         nav.pos.source === 'gps' ? [0.40, 0.90, 0.82] : [0.64, 0.78, 0.96], 'dot', k);
     }
     if (nav.destId) {
-      const p = places.find(q => q.id === nav.destId);
+      const p = objById.get(nav.destId);
       if (p) {
         disposeVao(gl, nav.destMark);
         nav.destMark = buildMarker(gl, p.x, p.y, 0, field, [0.95, 0.70, 0.26], 'pin', k);
@@ -1056,7 +1255,7 @@ void main(){}`;
     const r = nav.results && nav.results[nav.mode];
     if (r) nav.route = buildRouteMesh(gl, r.pts, field, MODES[nav.mode].col);
     nav.info = r || null;
-    setDestMark(r ? places.find(q => q.id === nav.results.to) : null);
+    setDestMark(r ? objById.get(nav.results.to) : null);
   }
 
   /* repère d'arrivée, aux couleurs d'accent : le trajet se lit d'un coup
@@ -1291,7 +1490,7 @@ void main(){}`;
     setPicking(false);
     setPosition(hit[0], hit[1], 6, 'manuel');
     navStatus('Départ posé sur la carte.');
-    const dest = places.find(q => q.id === state.activePlace);
+    const dest = objById.get(state.activePlace);
     if (dest) computeRoute(dest, true);
     return true;
   }
@@ -1429,23 +1628,112 @@ void main(){}`;
   }
 
   /* ---------- interface ---------- */
-  function buildUI() {
-    const nav = document.getElementById('nav');
-    nav.innerHTML = '';
-    const listed = places.filter(p => p.kind === 'campus');
-    const countEl = document.getElementById('siteCount');
-    if (countEl) countEl.textContent = listed.length + (listed.length > 1 ? ' sites' : ' site');
-    for (const p of listed) {
-      const b = document.createElement('button');
-      b.className = 'nav-item';
-      b.dataset.id = p.id;
-      b.innerHTML = `<span class="ni-name">${p.name}</span><span class="ni-sub">${p.sub || ''}</span>`;
-      b.addEventListener('click', () => flyTo(p));
-      nav.appendChild(b);
+  /* La même liste sert de sommaire des campus et de résultats de recherche :
+     une seule mécanique à comprendre pour l'utilisateur comme pour le code. */
+  function renderList() {
+    const el = document.getElementById('nav');
+    if (!el) return;
+    el.innerHTML = '';
+    const q = query.trim();
+    let rows, vide = '';
+    if (q) {
+      rows = search(q, 30);
+      if (!rows.length) {
+        vide = /^[a-z]{1,3}\s?-?\d/i.test(q)
+          ? 'Aucune salle ni aucun lieu à ce nom. L’annuaire des salles se remplit dans <code>salles.json</code>.'
+          : 'Rien à ce nom. Essayez « Desanti », « RU », « bibliothèque », « gare ».';
+      }
+    } else {
+      rows = index.filter(e => e.kind === 'site');
     }
+    for (const e of rows) {
+      const b = document.createElement('button');
+      b.className = 'nav-item' + (e.kind === 'salle' ? ' is-salle' : '');
+      b.dataset.id = e.place.id;
+      b.type = 'button';
+      b.innerHTML = `<span class="ni-name">${e.name}</span>` +
+        `<span class="ni-sub">${e.sub || ''}</span>`;
+      b.addEventListener('click', () => { flyTo(e.place); });
+      el.appendChild(b);
+    }
+    if (vide) {
+      const d = document.createElement('p');
+      d.className = 'nav-empty';
+      d.innerHTML = vide;
+      el.appendChild(d);
+    }
+    document.querySelectorAll('.nav-item').forEach(b =>
+      b.classList.toggle('is-active', b.dataset.id === state.activePlace));
+  }
+
+  function setCat(c) {
+    cat = c;
+    document.querySelectorAll('.cat-chip').forEach(b =>
+      b.setAttribute('aria-pressed', String(b.dataset.cat === c)));
+    makePoiLabels();
+  }
+
+  function buildUI() {
+    renderList();
     document.getElementById('btnOverview').addEventListener('click', overview);
-    const fold = document.getElementById('railFold');
-    if (fold) fold.addEventListener('click', () =>
+
+    // chips de catégorie
+    const catBox = document.getElementById('cats');
+    if (catBox) {
+      catBox.innerHTML = '';
+      for (const c of CATS) {
+        const b = document.createElement('button');
+        b.className = 'cat-chip';
+        b.type = 'button';
+        b.dataset.cat = c.id;
+        b.textContent = c.label;
+        b.title = c.hint;
+        b.setAttribute('aria-pressed', String(c.id === cat));
+        b.addEventListener('click', () => setCat(cat === c.id ? '' : c.id));
+        catBox.appendChild(b);
+      }
+    }
+
+    // champ de recherche
+    const find = document.getElementById('find');
+    const findClear = document.getElementById('findClear');
+    const head = document.getElementById('listHead');
+    if (find) {
+      const sync = () => {
+        query = find.value;
+        if (findClear) findClear.hidden = !query;
+        if (head) head.textContent = query.trim()
+          ? 'Résultats' : 'Campus & repères';
+        renderList();
+      };
+      find.addEventListener('input', sync);
+      find.addEventListener('focus', () => { if (phoneLayout) setSheet('open'); });
+      find.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') { find.value = ''; sync(); find.blur(); }
+        if (e.key === 'Enter') {
+          const first = document.querySelector('#nav .nav-item');
+          if (first) { first.click(); find.blur(); }
+        }
+      });
+      if (findClear) findClear.addEventListener('click', () => { find.value = ''; sync(); find.focus(); });
+    }
+
+    // carte de bienvenue, une seule fois par appareil
+    const wel = document.getElementById('welcome');
+    const welGo = document.getElementById('welcomeGo');
+    let vu = false;
+    try { vu = localStorage.getItem('pdc-vu') === '1'; } catch (_) {}
+    if (wel && !vu) {
+      wel.hidden = false;
+      const close = () => {
+        wel.hidden = true;
+        try { localStorage.setItem('pdc-vu', '1'); } catch (_) {}
+      };
+      if (welGo) welGo.addEventListener('click', close);
+      wel.addEventListener('click', (e) => { if (e.target === wel) close(); });
+    }
+    const foldBtn = document.getElementById('railFold');
+    if (foldBtn) foldBtn.addEventListener('click', () =>
       foldRail(document.querySelector('.rail').dataset.fold !== 'true'));
 
     const bind = (id, key, onLabel, offLabel) => {
@@ -1496,9 +1784,11 @@ void main(){}`;
     const navList = document.getElementById('nav');
     const foot = document.querySelector('.rail-foot');
     const strip = document.querySelector('.strip');
+    const finder = document.getElementById('finder');
     if (!note || !navList || !foot || !strip) return;
 
     if (phone) {
+      if (finder) document.getElementById('slotFind').appendChild(finder);
       document.getElementById('slotNote').appendChild(note);
       document.getElementById('slotNav').appendChild(navList);
       document.getElementById('slotFoot').appendChild(foot);
@@ -1507,8 +1797,9 @@ void main(){}`;
       placeFab();
     } else {
       const rail = document.querySelector('.rail');
+      if (finder) rail.insertBefore(finder, rail.firstElementChild);
       document.querySelector('.mast').appendChild(note);
-      rail.insertBefore(navList, rail.lastElementChild);
+      rail.insertBefore(navList, rail.querySelector('.rail-foot'));
       rail.appendChild(foot);
       document.querySelector('.overlay').appendChild(strip);
       sheet.hidden = true;
@@ -1551,7 +1842,7 @@ void main(){}`;
     if (!bar) return;
     const i = nav.info;
     if (!i || !nav.results) { bar.hidden = true; return; }
-    const dest = places.find(q => q.id === nav.results.to);
+    const dest = objById.get(nav.results.to);
     bar.hidden = false;
     bar.innerHTML = `${ICON(nav.mode, 'rb-ic')}
       <span class="rb-main">
@@ -1592,6 +1883,19 @@ void main(){}`;
     window.addEventListener('resize', placeFab);
     applyLayout();
     setSheet('peek');
+  }
+
+  /* Annuaire des salles : fichier optionnel, tenu par l'établissement.
+     Absent, illisible ou ouvert en file:// — on continue sans, la recherche
+     porte alors sur les bâtiments seuls. */
+  async function loadSalles() {
+    try {
+      const r = await fetch('salles.json', { cache: 'no-cache' });
+      if (!r.ok) return [];
+      const j = await r.json();
+      const arr = Array.isArray(j) ? j : (j.salles || []);
+      return arr.filter(s => s && s.code && s.batiment);
+    } catch (_) { return []; }
   }
 
   /* ---------- boot ---------- */
@@ -1649,6 +1953,8 @@ void main(){}`;
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
       places = CORTE_DATA.places.map(p => ({ ...p }));
+      salles = await loadSalles();
+      buildIndex();
       makeLabels();
       buildUI();
       bindInput();
