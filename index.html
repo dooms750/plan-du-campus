@@ -303,6 +303,174 @@
   .nav-empty { margin: 0; padding: 13px 14px 15px; font-size: 12px; line-height: 1.5; color: var(--ink-dim); }
   .nav-empty code { font-family: var(--mono); font-size: 11px; color: var(--accent); }
 
+  /* ---------- vue caméra et boussole ---------- */
+  .ar {
+    position: fixed;
+    inset: 0;
+    z-index: 18;
+    background: #05080a;
+    overflow: hidden;
+    touch-action: none;
+  }
+  #arVideo {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: none;
+    background: #05080a;
+  }
+  .ar[data-mode="camera"] #arVideo { display: block; }
+  /* en mode boussole, un dégradé tient lieu d'horizon */
+  .ar-sky {
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(to bottom, #16222a 0%, #26333a 48%, #1b2420 52%, #0d1412 100%);
+  }
+  .ar[data-mode="camera"] .ar-sky { display: none; }
+  .ar-labels { position: absolute; inset: 0; pointer-events: none; }
+  .ar-lab {
+    position: absolute; left: 0; top: 0;
+    transform: translate(-50%, -50%);
+    display: grid;
+    justify-items: center;
+    gap: 3px;
+    white-space: nowrap;
+    will-change: transform;
+  }
+  .ar-lab b {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 4px 9px 5px;
+    border-radius: 3px;
+    background: rgba(9, 13, 15, 0.78);
+    border: 1px solid var(--edge-strong);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  }
+  .ar-lab i {
+    font-style: normal;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--ink-dim);
+    background: rgba(9, 13, 15, 0.6);
+    padding: 1px 5px 2px;
+    border-radius: 2px;
+  }
+  .ar-lab.ar-cache b { border-style: dashed; color: var(--ink-dim); background: rgba(9, 13, 15, 0.55); }
+  .ar-lab.ar-but b { border-color: var(--accent); color: #14100a; background: var(--accent); }
+  .ar-lab.ar-uni b { border-color: rgba(242, 179, 66, 0.55); }
+
+  .ar-arrow {
+    position: absolute;
+    left: 50%; top: 50%;
+    width: min(56vw, 240px); height: min(56vw, 240px);
+    margin: 0;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  .ar[data-mode="camera"] .ar-arrow { width: 96px; height: 96px; top: auto; bottom: 168px; left: 50%; }
+  .ar-ring { fill: rgba(9, 13, 15, 0.35); stroke: var(--edge); stroke-width: 1.5; }
+  .ar-tip { fill: var(--teal); filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.5)); }
+  .ar[data-loin="true"] .ar-tip { fill: var(--accent); }
+
+  .ar-top {
+    position: absolute;
+    top: calc(10px + env(safe-area-inset-top, 0px));
+    left: 12px; right: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .ar-close {
+    appearance: none;
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--edge);
+    background: rgba(9, 13, 15, 0.7);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: var(--ink);
+    font-size: 24px; line-height: 1;
+    cursor: pointer;
+  }
+  .ar-modes { display: flex; gap: 5px; }
+  .ar-mode {
+    appearance: none;
+    border: 1px solid var(--edge);
+    background: rgba(9, 13, 15, 0.7);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: 999px;
+    color: var(--ink-faint);
+    font: inherit; font-size: 12.5px;
+    padding: 8px 14px 9px;
+    cursor: pointer;
+  }
+  .ar-mode[aria-pressed="true"] { border-color: var(--teal); color: var(--ink); background: rgba(116, 185, 174, 0.22); }
+
+  .ar-choixs {
+    position: absolute;
+    left: 0; right: 0;
+    bottom: calc(126px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 0 12px 2px;
+  }
+  .ar-choixs::-webkit-scrollbar { display: none; }
+  .ar-choix {
+    appearance: none;
+    flex: 0 0 auto;
+    display: grid;
+    gap: 1px;
+    justify-items: start;
+    background: rgba(9, 13, 15, 0.74);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--edge);
+    border-radius: 999px;
+    color: var(--ink-dim);
+    font: inherit;
+    font-size: 12px;
+    padding: 7px 13px 8px;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .ar-choix i {
+    font-style: normal;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    color: var(--ink-faint);
+  }
+  .ar-choix.est-actif { border-color: var(--accent); color: var(--ink); background: var(--accent-soft); }
+  .ar-lab { appearance: none; border: 0; background: none; padding: 0; font: inherit; color: var(--ink); pointer-events: auto; cursor: pointer; }
+  .ar-labels { pointer-events: none; }
+
+  .ar-hud {
+    position: absolute;
+    left: 12px; right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    background: rgba(9, 13, 15, 0.78);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--edge);
+    border-radius: 5px;
+    padding: 12px 14px 13px;
+    display: grid;
+    gap: 5px;
+  }
+  .ar-cible { font-family: var(--display); font-size: 17px; font-weight: 600; line-height: 1.15; }
+  .ar-dist { font-family: var(--mono); font-size: 14px; color: var(--teal); font-variant-numeric: tabular-nums; }
+  .ar-etat { font-size: 11px; line-height: 1.45; color: var(--ink-faint); }
+  .ar-recal { display: flex; align-items: center; gap: 9px; margin-top: 2px; }
+  .ar-recal label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); }
+  .ar-recal input { flex: 1 1 auto; width: auto; }
+  #arOffsetOut { font-family: var(--mono); font-size: 11px; color: var(--ink-dim); min-width: 3.2em; text-align: right; }
+
   /* ---------- bienvenue ---------- */
   .welcome {
     position: fixed;
@@ -487,6 +655,7 @@
     font-variant-numeric: tabular-nums;
   }
   .ghost.tiny { font-size: 10.5px; padding: 4px 8px; }
+  .route-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 
   /* sélecteur de mode : deux grandes tuiles, pictogramme + durée */
   .mode-switch {
@@ -690,6 +859,29 @@
      descendent dans une feuille inférieure atteignable au pouce.
      ================================================================ */
   .sheet, .fab { display: none; }
+  /* la pastille « lunettes » reste disponible sur grand écran : discrète,
+     en bas à droite, au-dessus du bandeau d'instruments */
+  .fab-ar {
+    display: grid;
+    position: fixed;
+    right: 18px;
+    bottom: 96px;
+    z-index: 9;
+    width: 46px; height: 46px;
+    place-items: center;
+    border-radius: 50%;
+    border: 1px solid var(--edge-strong);
+    background: rgba(10, 16, 18, 0.82);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    color: var(--ink-dim);
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+    transition: bottom 0.28s ease, border-color 0.2s ease, color 0.2s ease;
+  }
+  .fab-ar svg { width: 22px; height: 22px; }
+  .fab-ar:hover, .fab-ar:active { border-color: var(--teal); color: var(--teal); }
+  .fab-ar:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
 
   @media (max-width: 760px) {
     .overlay {
@@ -943,6 +1135,8 @@
       transition: bottom 0.28s ease, border-color 0.2s ease, color 0.2s ease;
     }
     .fab svg { width: 23px; height: 23px; }
+    .fab-ar { right: 14px; width: 44px; height: 44px; }
+    .fab-ar svg { width: 21px; height: 21px; }
     .fab[data-on="true"] { border-color: var(--teal); color: #0d1a18; background: var(--teal); }
     .fab:active { border-color: var(--teal); }
     /* feuille ouverte : le bouton s'efface, « Ma position » est dans la liste */
@@ -1040,6 +1234,17 @@ img { max-width: 100%; } [hidden] { display: none !important; }</style>
 
 <div id="holdRing" data-on="false" aria-hidden="true"></div>
 
+<button class="fab fab-ar" id="fabAr" type="button" aria-label="Viser un bâtiment à la boussole">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <circle cx="6.9" cy="14.2" r="4.5"/>
+    <circle cx="17.1" cy="14.2" r="4.5"/>
+    <path d="M11.4 13.5c.4-.5 1.5-.5 1.9 0"/>
+    <path d="M2.4 12.4 3.3 9.6"/>
+    <path d="M21.6 12.4 20.7 9.6"/>
+  </svg>
+</button>
+
 <button class="fab" id="fabLocate" type="button" aria-label="Utiliser ma position">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
     <circle cx="12" cy="12" r="3.2"></circle>
@@ -1047,6 +1252,38 @@ img { max-width: 100%; } [hidden] { display: none !important; }</style>
     <path d="M12 1.6v2.6M12 19.8v2.6M22.4 12h-2.6M4.2 12H1.6"></path>
   </svg>
 </button>
+
+<div class="ar" id="ar" hidden>
+  <video id="arVideo" playsinline muted autoplay></video>
+  <div class="ar-sky" id="arSky"></div>
+  <div class="ar-labels" id="arLabels"></div>
+
+  <svg class="ar-arrow" id="arArrow" viewBox="0 0 100 100" aria-hidden="true">
+    <circle cx="50" cy="50" r="46" class="ar-ring"/>
+    <path d="M50 12 L70 66 L50 55 L30 66 Z" class="ar-tip"/>
+  </svg>
+
+  <div class="ar-top">
+    <button class="ar-close" id="arClose" type="button" aria-label="Fermer">&times;</button>
+    <div class="ar-modes" role="group" aria-label="Mode">
+      <button class="ar-mode" id="arBoussole" type="button" aria-pressed="true">Boussole</button>
+      <button class="ar-mode" id="arCamera" type="button" aria-pressed="false">Caméra</button>
+    </div>
+  </div>
+
+  <div class="ar-choixs" id="arChoix"></div>
+
+  <div class="ar-hud">
+    <div class="ar-cible" id="arCible">—</div>
+    <div class="ar-dist" id="arDist"></div>
+    <div class="ar-etat" id="arEtat"></div>
+    <div class="ar-recal">
+      <label for="arOffset">Recaler le cap</label>
+      <input type="range" id="arOffset" min="-45" max="45" step="1" value="0">
+      <output id="arOffsetOut">0°</output>
+    </div>
+  </div>
+</div>
 
 <div class="welcome" id="welcome" hidden>
   <div class="welcome-card">
@@ -1070,10 +1307,10 @@ img { max-width: 100%; } [hidden] { display: none !important; }</style>
   <p id="loadNote">Ouverture de la vallée…</p>
 </div>
 
-<script src="data.js?v14"></script>
-<script src="core.js?v14"></script>
-<script src="build.js?v14"></script>
-<script src="app.js?v14"></script>
+<script src="data.js?v17"></script>
+<script src="core.js?v17"></script>
+<script src="build.js?v17"></script>
+<script src="app.js?v17"></script>
 
 <script>
   /* Filet de sécurité. Un service worker d'une version antérieure peut
@@ -1083,7 +1320,7 @@ img { max-width: 100%; } [hidden] { display: none !important; }</style>
      portent bien la version attendue ; sinon elle se purge et recharge,
      une seule fois par session pour ne jamais boucler. */
   (function () {
-    var attendue = 'v14';
+    var attendue = 'v17';
     addEventListener('load', function () {
       setTimeout(function () {
         if (window.__PDC_BUILD === attendue) return;

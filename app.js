@@ -624,6 +624,11 @@ void main(){}`;
   let last = performance.now(), clock = 0;
 
   function frame(now) {
+    /* Pendant la visée, l'écran est entièrement couvert : inutile de
+       continuer à dessiner 800 000 triangles derrière. Caméra, GPS,
+       magnétomètre et WebGL simultanés, c'est le téléphone qui chauffe et
+       la batterie qui tombe. */
+    if (ar.ouvert) { last = now; requestAnimationFrame(frame); return; }
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now; clock += dt;
 
@@ -1845,9 +1850,11 @@ void main(){}`;
   }
 
   function placeFab() {
-    if (!phoneLayout) return;
+    const fabAr = document.getElementById('fabAr');
+    if (!phoneLayout) { if (fabAr) fabAr.style.bottom = ''; return; }
     const h = sheet.getBoundingClientRect().height;
     fab.style.bottom = Math.round(h + 12) + 'px';
+    if (fabAr) fabAr.style.bottom = Math.round(h + 12 + 52 + 10) + 'px';
   }
 
   function setSheet(state) {
@@ -1923,6 +1930,440 @@ void main(){}`;
     } catch (_) { return []; }
   }
 
+
+  /* ================= boussole et vue caméra =================
+   *
+   * Pourquoi pas WebXR : Safari sur iPhone n'expose toujours pas les
+   * sessions immersive-ar. On compose donc à la main — flux de la caméra
+   * arrière en fond, cap et inclinaison pris sur les capteurs, position au
+   * GPS — et l'on réutilise la projection déjà écrite pour le plan.
+   *
+   * Ce que l'application a de plus qu'une application de réalité augmentée
+   * ordinaire : le relief au mètre et la hauteur du bâti. Elle sait donc ce
+   * qui est réellement caché, et l'écrit plutôt que de faire flotter un nom
+   * au travers d'un mur.
+   */
+
+  const AR_FOV_H = 64 * Math.PI / 180;   // ouverture horizontale supposée de la caméra
+  const AR_OEIL = 1.6;                    // hauteur des yeux, en mètres
+  const AR_PORTEE = 1400;                 // au-delà, on n'affiche plus rien
+
+  const ar = {
+    ouvert: false, mode: 'boussole',
+    cap: null, capPrecision: null, tangage: 0,
+    base: null,            // repère de l'appareil : avant / droite / haut, en (est, nord, haut)
+    offset: 0,             // recalage manuel, en degrés
+    flux: null, video: null,
+    raf: 0, els: new Map(),
+    grille: null,          // hauteurs du bâti, pour l'occultation
+    sansCap: true, avertiHorsZone: false
+  };
+
+  /* ---- repère de l'appareil ----
+     Les angles d'Euler du W3C sont donnés en ZXY intrinsèque. On reconstruit
+     la matrice, puis on lit l'axe −Z : c'est la direction que regarde la
+     caméra arrière. Passer par la matrice plutôt que par « 360 − alpha »
+     est indispensable ici, car le téléphone est tenu debout et la formule
+     naïve s'effondre dès que l'inclinaison dépasse quelques degrés. */
+  function arBase(alpha, beta, gamma) {
+    const d = Math.PI / 180;
+    const a = alpha * d, b = beta * d, g = gamma * d;
+    const cA = Math.cos(a), sA = Math.sin(a);
+    const cB = Math.cos(b), sB = Math.sin(b);
+    const cG = Math.cos(g), sG = Math.sin(g);
+    // lignes de la matrice de rotation appareil -> monde (est, nord, haut)
+    const m11 = cA * cG - sA * sB * sG, m12 = -cB * sA, m13 = cA * sG + cG * sA * sB;
+    const m21 = cG * sA + cA * sB * sG, m22 = cA * cB,  m23 = sA * sG - cA * cG * sB;
+    const m31 = -cB * sG,               m32 = sB,       m33 = cB * cG;
+    return {
+      avant: [-m13, -m23, -m33],   // l'objectif arrière
+      droite: [m11, m21, m31],
+      haut: [m12, m22, m32]
+    };
+  }
+
+  /* L'écran peut être tourné dans la main : on fait pivoter le couple
+     (droite, haut) dans le plan de l'écran, l'objectif ne bougeant pas. */
+  function arPivoteEcran(base, deg) {
+    if (!deg) return base;
+    const t = deg * Math.PI / 180, c = Math.cos(t), s = Math.sin(t);
+    const d = base.droite, h = base.haut;
+    return {
+      avant: base.avant,
+      droite: [d[0] * c - h[0] * s, d[1] * c - h[1] * s, d[2] * c - h[2] * s],
+      haut:   [d[0] * s + h[0] * c, d[1] * s + h[1] * c, d[2] * s + h[2] * c]
+    };
+  }
+
+  function arOrientation(e) {
+    if (e.alpha == null) return;
+    const angleEcran = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
+    let base = arBase(e.alpha, e.beta || 0, e.gamma || 0);
+    base = arPivoteEcran(base, angleEcran);
+    // recalage manuel : rotation du repère autour de la verticale
+    if (ar.offset) {
+      const t = ar.offset * Math.PI / 180, c = Math.cos(t), s = Math.sin(t);
+      const tourne = (v) => [v[0] * c + v[1] * s, -v[0] * s + v[1] * c, v[2]];
+      base = { avant: tourne(base.avant), droite: tourne(base.droite), haut: tourne(base.haut) };
+    }
+    ar.base = base;
+    const f = base.avant;
+    ar.cap = (Math.atan2(f[0], f[1]) * 180 / Math.PI + 360) % 360;
+    ar.tangage = Math.asin(clamp(f[2], -1, 1)) * 180 / Math.PI;
+    if (typeof e.webkitCompassHeading === 'number' && e.webkitCompassHeading >= 0) {
+      // iOS donne le cap vrai directement : plus sûr que notre reconstruction
+      ar.cap = (e.webkitCompassHeading + ar.offset + 360) % 360;
+      ar.capPrecision = typeof e.webkitCompassAccuracy === 'number' ? e.webkitCompassAccuracy : null;
+      /* On réaligne le repère sur ce cap, en le faisant tourner de l'écart
+         constaté : l'inclinaison reste celle des capteurs. */
+      const brut = (Math.atan2(f[0], f[1]) * 180 / Math.PI + 360) % 360;
+      let d2 = ((ar.cap - brut + 540) % 360) - 180;
+      const t = d2 * Math.PI / 180, c = Math.cos(t), s = Math.sin(t);
+      const tourne = (v) => [v[0] * c + v[1] * s, -v[0] * s + v[1] * c, v[2]];
+      ar.base = { avant: tourne(base.avant), droite: tourne(base.droite), haut: tourne(base.haut) };
+    }
+    ar.sansCap = false;
+  }
+
+  /* ---- occultation ----
+     Une grille grossière des hauteurs de bâti, construite une fois. Six
+     mètres de côté suffisent : on cherche à savoir si un pâté de maisons
+     bouche la vue, pas à dessiner une façade. */
+  function arGrille() {
+    if (ar.grille) return ar.grille;
+    const PAS = 6, DEMI = 1300, N = Math.ceil(2 * DEMI / PAS);
+    const h = new Uint8Array(N * N);          // hauteur en pas de 0,5 m
+    const poser = (x, y, m) => {
+      const i = Math.round((x + DEMI) / PAS), j = Math.round((y + DEMI) / PAS);
+      if (i < 0 || j < 0 || i >= N || j >= N) return;
+      const v = Math.min(255, Math.round(m * 2));
+      if (v > h[j * N + i]) h[j * N + i] = v;
+    };
+    for (const f of feats) {
+      if (f.kind !== KIND.BUILDING) continue;
+      const haut = (f.sub || 6) * 0.5;
+      const p = f.pts;
+      // on pose les sommets et on remplit les arêtes : suffisant à ce pas
+      for (let k = 0; k < p.length; k += 2) {
+        poser(p[k], p[k + 1], haut);
+        const k2 = (k + 2) % p.length;
+        const dx = p[k2] - p[k], dy = p[k2 + 1] - p[k + 1];
+        const n = Math.ceil(Math.hypot(dx, dy) / PAS);
+        for (let t = 1; t < n; t++) poser(p[k] + dx * t / n, p[k + 1] + dy * t / n, haut);
+      }
+    }
+    ar.grille = { h, N, PAS, DEMI };
+    return ar.grille;
+  }
+
+  function arSommet(x, y) {
+    const g = arGrille();
+    const i = Math.round((x + g.DEMI) / g.PAS), j = Math.round((y + g.DEMI) / g.PAS);
+    const bati = (i < 0 || j < 0 || i >= g.N || j >= g.N) ? 0 : g.h[j * g.N + i] * 0.5;
+    return field.at(x, -y) + bati;
+  }
+
+  /* Vrai si la cible est visible depuis l'œil : on marche le long du rayon
+     et l'on regarde si le sol ou le bâti passe au-dessus de la ligne de vue. */
+  function arVisible(ox, oy, oz, tx, ty, tz) {
+    const d = Math.hypot(tx - ox, ty - oy);
+    if (d < 25) return true;
+    /* On part à quinze mètres : l'immeuble contre lequel on se tient ne
+       masque pas ce qu'on regarde. Et l'on exige deux prélèvements bloqués
+       d'affilée, pour qu'un coin de toit mal échantillonné ne suffise pas. */
+    const pas = Math.max(8, d / 60);
+    let bloques = 0;
+    for (let s = Math.max(pas, 15); s < d - 12; s += pas) {
+      const t = s / d;
+      const x = ox + (tx - ox) * t, y = oy + (ty - oy) * t;
+      const ligne = oz + (tz - oz) * t;
+      if (arSommet(x, y) > ligne + 2.5) { if (++bloques >= 2) return false; }
+      else bloques = 0;
+    }
+    return true;
+  }
+
+  /* ---- cibles ---- */
+  function arCibles() {
+    const p = nav.pos;
+    if (!p) return [];
+    const but = objById.get(state.activePlace);
+    const liste = [];
+    const vu = new Set();
+    const ajoute = (e, prioritaire) => {
+      if (!e || vu.has(e.id)) return;
+      const dx = e.x - p.x, dy = e.y - p.y;
+      const d = Math.hypot(dx, dy);
+      if (d > AR_PORTEE && !prioritaire) return;
+      vu.add(e.id);
+      liste.push({ id: e.id, nom: e.name, x: e.x, y: e.y, d, uni: e.uni, but: prioritaire });
+    };
+    if (but) ajoute({ id: but.id, name: but.name, x: but.x, y: but.y, uni: 2 }, true);
+    for (const e of index) {
+      if (e.kind === 'salle') continue;
+      if (e.kind !== 'site' && e.cat !== cat) continue;
+      ajoute(e, false);
+    }
+    liste.sort((a, b) => (b.but - a.but) || (b.uni - a.uni) || (a.d - b.d));
+    return liste.slice(0, 18);
+  }
+
+  const arFmtDist = (m) => m < 1000 ? Math.round(m / 10) * 10 + ' m'
+    : (m / 1000).toFixed(1).replace('.', ',') + ' km';
+
+  /* ---- une image ---- */
+  const arM = { vue: M4.create(), proj: M4.create(), vp: M4.create() };
+  const arTmp = [0, 0, 0, 0];
+
+  function arImage() {
+    if (!ar.ouvert) return;
+    ar.raf = requestAnimationFrame(arImage);
+    const hud = document.getElementById('arEtat');
+    const p = nav.pos;
+    const boite = document.getElementById('ar');
+    const W = boite.clientWidth, H = boite.clientHeight;
+
+    if (!p) { arEtat('Activez votre position pour viser un bâtiment.'); return; }
+    if (ar.sansCap || !ar.base) {
+      /* Au bout de quelques secondes sans un seul événement d'orientation,
+         c'est que l'appareil n'a pas de magnétomètre — un ordinateur de
+         bureau, par exemple. Autant le dire que faire attendre. */
+      const attente = performance.now() - (ar.depuis || 0);
+      arEtat(attente > 4500
+        ? 'Cet appareil ne fournit pas de cap : la visée n’est possible que sur un téléphone.'
+        : 'En attente de la boussole — décrivez un 8 avec le téléphone.');
+      return;
+    }
+
+    const oz = field.at(p.x, -p.y) + AR_OEIL;
+    const cibles = arCibles();
+    const but = cibles.find(c => c.but) || cibles[0];
+
+    // flèche : écart entre le cap et l'azimut de la cible
+    const fleche = document.getElementById('arArrow');
+    if (but) {
+      const azim = (Math.atan2(but.x - p.x, but.y - p.y) * 180 / Math.PI + 360) % 360;
+      let ecart = ((azim - ar.cap + 540) % 360) - 180;
+      fleche.style.transform = `translate(-50%, -50%) rotate(${ecart.toFixed(1)}deg)`;
+      boite.dataset.loin = String(Math.abs(ecart) > 25);
+      document.getElementById('arCible').textContent = but.nom;
+      document.getElementById('arDist').textContent =
+        arFmtDist(but.d) + ' · ' + Math.round(azim) + '° ' + arRose(azim);
+    } else {
+      document.getElementById('arCible').textContent = 'Aucun repère à portée';
+      document.getElementById('arDist').textContent = '';
+    }
+
+    // étiquettes, seulement en vue caméra
+    const couche = document.getElementById('arLabels');
+    if (ar.mode !== 'camera') { for (const [, el] of ar.els) el.style.display = 'none'; arEtat(arEtatTexte()); return; }
+
+    const aspect = W / Math.max(1, H);
+    const fovV = 2 * Math.atan(Math.tan(AR_FOV_H / 2) / aspect);
+    M4.perspective(arM.proj, fovV, aspect, 1, 20000);
+    const f = ar.base.avant, u = ar.base.haut;
+    const oeil = [p.x, oz, -p.y];
+    const vise = [p.x + f[0] * 100, oz + f[2] * 100, -(p.y + f[1] * 100)];
+    M4.lookAt(arM.vue, oeil, vise, [u[0], u[2], -u[1]]);
+    M4.mul(arM.vp, arM.proj, arM.vue);
+
+    const places_ = [];
+    for (const c of cibles) {
+      let el = ar.els.get(c.id);
+      if (!el) {
+        el = document.createElement('button');
+        el.type = 'button';
+        el.className = 'ar-lab';
+        el.addEventListener('click', () => arVise(objById.get(c.id)));
+        couche.appendChild(el);
+        ar.els.set(c.id, el);
+      }
+      const tz = arSommet(c.x, c.y) + 3;
+      M4.transform(arTmp, arM.vp, c.x, tz, -c.y);
+      if (arTmp[3] <= 0) { el.style.display = 'none'; continue; }
+      const sx = (arTmp[0] / arTmp[3] * 0.5 + 0.5) * W;
+      const sy = (0.5 - arTmp[1] / arTmp[3] * 0.5) * H;
+      // une étiquette à demi sortie de l'écran ne se lit pas : on la retire
+      if (sx < 8 || sx > W - 8 || sy < 46 || sy > H - 150) { el.style.display = 'none'; continue; }
+      let clash = false;
+      for (const q of places_) if (Math.abs(q.sx - sx) < 96 && Math.abs(q.sy - sy) < 34) { clash = true; break; }
+      if (clash && !c.but) { el.style.display = 'none'; continue; }
+      places_.push({ sx, sy });
+      const cache = !arVisible(p.x, p.y, oz, c.x, c.y, tz);
+      el.className = 'ar-lab' + (c.but ? ' ar-but' : c.uni ? ' ar-uni' : '') + (cache ? ' ar-cache' : '');
+      el.style.display = '';
+      el.style.transform = `translate(-50%, -50%) translate(${sx.toFixed(1)}px, ${sy.toFixed(1)}px)`;
+      el.innerHTML = `<b>${c.nom}</b><i>${arFmtDist(c.d)}${cache ? ' · masqué' : ''}</i>`;
+    }
+    arEtat(arEtatTexte());
+  }
+
+  const arRose = (a) => ['nord','nord-est','est','sud-est','sud','sud-ouest','ouest','nord-ouest'][Math.round(a / 45) % 8];
+
+  /* Un message d'incident doit rester lisible : sans cela la boucle le
+     remplace par l'état courant à l'image suivante. */
+  function arDit(t, secondes) {
+    ar.message = t;
+    ar.messageJusqu = performance.now() + (secondes || 5) * 1000;
+    arPose(t);
+  }
+
+  function arEtatTexte() {
+    if (ar.message && performance.now() < ar.messageJusqu) return ar.message;
+    const bits = [];
+    if (ar.capPrecision != null) bits.push('boussole ±' + Math.round(ar.capPrecision) + '°');
+    else bits.push('boussole non calibrée');
+    if (ar.mode === 'camera') bits.push('les noms en pointillé sont masqués par le relief ou le bâti');
+    return bits.join(' · ');
+  }
+  function arPose(t) { const el = document.getElementById('arEtat'); if (el) el.textContent = t; }
+  function arEtat(t) {
+    if (ar.message && performance.now() < ar.messageJusqu) return;
+    arPose(t);
+  }
+
+  /* ---- ouverture, fermeture ---- */
+  async function arPermissionCap() {
+    const D = window.DeviceOrientationEvent;
+    if (D && typeof D.requestPermission === 'function') {
+      try { return (await D.requestPermission()) === 'granted'; } catch (_) { return false; }
+    }
+    return true;
+  }
+
+  async function arCameraOn() {
+    if (ar.flux) return true;
+    try {
+      ar.flux = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } }, audio: false
+      });
+      const v = document.getElementById('arVideo');
+      v.srcObject = ar.flux;
+      await v.play().catch(() => {});
+      return true;
+    } catch (_) {
+      ar.flux = null;
+      return false;
+    }
+  }
+
+  function arCameraOff() {
+    if (!ar.flux) return;
+    for (const t of ar.flux.getTracks()) t.stop();
+    ar.flux = null;
+    const v = document.getElementById('arVideo');
+    if (v) v.srcObject = null;
+  }
+
+  async function arMode(m) {
+    if (m === 'camera' && !(await arCameraOn())) {
+      arDit('Caméra indisponible ou refusée — le mode boussole fonctionne quand même.', 7);
+      m = 'boussole';
+    }
+    if (m !== 'camera') arCameraOff();
+    ar.mode = m;
+    document.getElementById('ar').dataset.mode = m;
+    document.getElementById('arBoussole').setAttribute('aria-pressed', String(m === 'boussole'));
+    document.getElementById('arCamera').setAttribute('aria-pressed', String(m === 'camera'));
+    if (m !== 'camera') for (const [, el] of ar.els) el.style.display = 'none';
+  }
+
+  async function arVeille(actif) {
+    try {
+      if (actif) {
+        if ('wakeLock' in navigator && !ar.veille) {
+          ar.veille = await navigator.wakeLock.request('screen');
+          ar.veille.addEventListener('release', () => { ar.veille = null; });
+        }
+      } else if (ar.veille) { await ar.veille.release(); ar.veille = null; }
+    } catch (_) { ar.veille = null; }
+  }
+
+  async function arOuvre(mode) {
+    const boite = document.getElementById('ar');
+    if (!boite) return;
+    boite.hidden = false;
+    ar.ouvert = true;
+    ar.sansCap = true;
+    ar.depuis = performance.now();
+    if (await arPermissionCap()) {
+      window.addEventListener('deviceorientationabsolute', arOrientation, true);
+      window.addEventListener('deviceorientation', arOrientation, true);
+    } else {
+      arDit('Accès à la boussole refusé — impossible de savoir où vous regardez.', 9);
+    }
+    await arMode(mode || 'boussole');
+    arVeille(true);
+    arChoix();
+    if (!nav.pos) locateMe();
+    cancelAnimationFrame(ar.raf);
+    ar.raf = requestAnimationFrame(arImage);
+  }
+
+  function arFerme() {
+    ar.ouvert = false;
+    arVeille(false);
+    cancelAnimationFrame(ar.raf);
+    window.removeEventListener('deviceorientationabsolute', arOrientation, true);
+    window.removeEventListener('deviceorientation', arOrientation, true);
+    arCameraOff();
+    const boite = document.getElementById('ar');
+    if (boite) boite.hidden = true;
+  }
+
+  window.__enVeille = () => !!ar.ouvert;
+  window.__arcap = () => ar.cap == null ? null : Math.round(ar.cap * 10) / 10;
+  window.__viser = (id) => { const p = objById.get(id); if (p) { state.activePlace = id; renderNote(p); } };
+
+  /* On ne quitte pas la visée pour changer de but : les sites les plus
+     proches s'affichent en pastilles, et en vue caméra une étiquette se
+     touche directement. */
+  function arChoix() {
+    const boite = document.getElementById('arChoix');
+    if (!boite) return;
+    const p = nav.pos;
+    boite.innerHTML = '';
+    if (!p) return;
+    const proches = index
+      .filter(e => e.kind === 'site')
+      .map(e => ({ e, d: Math.hypot(e.x - p.x, e.y - p.y) }))
+      .sort((a, b) => a.d - b.d)
+      .slice(0, 8);
+    for (const { e, d } of proches) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'ar-choix' + (state.activePlace === e.place.id ? ' est-actif' : '');
+      b.innerHTML = `${e.name}<i>${arFmtDist(d)}</i>`;
+      b.addEventListener('click', () => arVise(e.place));
+      boite.appendChild(b);
+    }
+  }
+
+  function arVise(p) {
+    if (!p) return;
+    state.activePlace = p.id;
+    renderNote(p);
+    if (nav.pos) computeRoute(p, false);
+    arChoix();
+  }
+
+  function bindAr() {
+    const boite = document.getElementById('ar');
+    if (!boite) return;
+    const porte = document.getElementById('fabAr');
+    if (porte) porte.addEventListener('click', () => arOuvre('boussole'));
+    document.getElementById('arClose').addEventListener('click', arFerme);
+    document.getElementById('arBoussole').addEventListener('click', () => arMode('boussole'));
+    document.getElementById('arCamera').addEventListener('click', () => arMode('camera'));
+    const off = document.getElementById('arOffset');
+    const offOut = document.getElementById('arOffsetOut');
+    off.addEventListener('input', () => {
+      ar.offset = parseFloat(off.value) || 0;
+      offOut.textContent = (ar.offset > 0 ? '+' : '') + ar.offset + '°';
+    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && ar.ouvert) arFerme(); });
+  }
+
   /* ---------- boot ---------- */
   async function boot() {
     const step = (pct, msg) => { loadBar.style.width = pct + '%'; loadNote.textContent = msg; return new Promise(r => setTimeout(r, 0)); };
@@ -1984,6 +2425,7 @@ void main(){}`;
       buildUI();
       bindInput();
       bindSheet();
+      bindAr();
 
       gl.enable(gl.DEPTH_TEST);
       gl.disable(gl.CULL_FACE);

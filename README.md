@@ -35,6 +35,30 @@ Vous arrivez à Corte et vous cherchez votre premier cours.
 | `courses`, `pain`, `retrait`, `pharmacie` | par besoin, pas seulement par nom |
 | `gare`, `bus`, `parking` | les transports |
 
+### Trouver un bâtiment en levant les yeux
+
+Facultatif, et rien ne change tant qu'on n'y touche pas : le plan reste exactement ce qu'il
+était. Une **pastille en forme de lunettes**, en bas à droite de la carte, ouvre deux modes.
+Ni la caméra ni la boussole ne sont sollicitées avant cette action.
+
+- **Boussole** — une grosse flèche vers le bâtiment choisi, la distance, l'azimut. Elle passe au
+  turquoise quand vous êtes dans l'axe. Rien d'autre à comprendre, et ça marche même quand la
+  boussole du téléphone est approximative.
+- **Caméra** — la vue réelle, avec les noms posés sur les bâtiments. Un nom **en pointillé**
+  signale un bâtiment qui est là, dans cette direction, mais **caché** par une colline ou par le
+  pâté de maisons devant vous : l'application connaît le relief et la hauteur du bâti, elle ne
+  fait pas flotter les noms au travers des murs.
+
+Une fois dedans, tout se fait sans ressortir : les sites les plus proches s'affichent en
+pastilles au bas de l'écran, et en vue caméra un nom se touche directement pour devenir la cible.
+L'écran ne s'éteint pas pendant que vous tenez le téléphone levé, et le plan en relief se met en
+veille derrière — sans quoi caméra, GPS, boussole et rendu 3D simultanés feraient chauffer
+l'appareil pour rien.
+
+La boussole d'un téléphone dérive facilement de 10 à 20°, davantage entre les murs de la
+citadelle ou près des voitures. Si les noms semblent décalés, le curseur **Recaler le cap**
+corrige l'écart. Faites d'abord un 8 avec le téléphone, cela suffit souvent.
+
 ### L'installer sur son téléphone
 
 C'est une application web : rien à télécharger sur un magasin d'applications.
@@ -49,6 +73,8 @@ L'icône apparaît avec les autres applications et le plan s'ouvre en plein écr
 
 La position n'est demandée que si vous appuyez sur le bouton, elle **ne quitte jamais le
 téléphone** et n'est pas conservée : l'itinéraire est calculé sur place, dans le navigateur.
+La caméra n'est allumée que dans le mode du même nom, et l'image **n'est ni enregistrée ni
+transmise** : elle sert de fond d'écran, rien de plus, et s'éteint dès que vous fermez la vue.
 La page n'émet aucune requête à l'exécution — la seule exception est le chargement des polices
 depuis Google Fonts, que l'on peut supprimer (voir plus bas).
 

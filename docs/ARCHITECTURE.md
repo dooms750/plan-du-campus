@@ -132,6 +132,49 @@ mène donc au bâtiment, l'étage étant donné dans la fiche.
 
 ---
 
+## Boussole et vue caméra
+
+**Pourquoi pas WebXR.** Safari sur iPhone n'expose toujours pas les sessions `immersive-ar` en
+2026. Sur une population étudiante, un appareil sur deux aurait un écran noir. On compose donc à
+la main, avec trois API disponibles partout : `getUserMedia` pour le flux de la caméra arrière,
+`DeviceOrientationEvent` pour l'attitude, la géolocalisation déjà en place.
+
+**Reconstruction du cap.** Les angles d'Euler du W3C sont donnés en ZXY intrinsèque. On
+reconstruit la matrice de rotation complète et on lit son axe −Z : c'est la direction de
+l'objectif arrière. Passer par la matrice plutôt que par le raccourci `360 − alpha` est
+indispensable, car le téléphone est tenu debout pour viser et la formule naïve s'effondre dès
+que l'inclinaison dépasse quelques degrés. La rotation de l'écran (`screen.orientation.angle`)
+fait ensuite pivoter le couple (droite, haut) dans le plan de l'écran ; l'objectif, lui, est
+solidaire du boîtier et ne bouge pas.
+
+Sur iOS, `webkitCompassHeading` donne le cap vrai directement : on le préfère à notre
+reconstruction et on réaligne le repère de l'écart constaté, en gardant l'inclinaison des
+capteurs. `webkitCompassAccuracy` est affichée telle quelle — mieux vaut annoncer ±20° que
+laisser croire à une précision qu'on n'a pas. Android n'expose pas d'équivalent.
+
+**Occultation.** C'est ce qui sépare un outil d'un gadget : les applications de réalité augmentée
+ordinaires font flotter les noms au travers des murs. Une grille des hauteurs du bâti est
+construite une fois, au pas de 6 m sur 2,6 km de côté, en rastérisant les arêtes des emprises
+(`arGrille`). Un rayon est ensuite marché de l'œil vers la cible, en comparant à chaque
+prélèvement `field.at + hauteur du bâti` à la ligne de vue. La marche démarre à quinze mètres —
+l'immeuble contre lequel on se tient ne masque pas ce qu'on regarde — et exige deux prélèvements
+bloqués d'affilée, pour qu'un coin de toit mal échantillonné ne suffise pas à déclarer une cible
+masquée.
+
+**Économie de l'appareil.** Le mode est facultatif : la pastille en forme de lunettes est la
+seule porte d'entrée, et ni la caméra ni le magnétomètre ne sont sollicités avant qu'on la
+touche. Une fois dedans, la boucle de rendu du plan se met en veille (`frame` sort
+immédiatement tant que `ar.ouvert`), et un `wakeLock` empêche l'écran de s'éteindre. Caméra,
+GPS, magnétomètre et 800 000 triangles en même temps, c'est la batterie qui tombe et le
+téléphone qui chauffe.
+
+**Ce qui n'est pas vérifiable hors du terrain.** La justesse d'un cap ne se teste pas en rendu
+logiciel : les tests automatiques injectent des événements d'orientation connus et contrôlent le
+cap reconstruit (`artest.js`), ce qui valide la géométrie, pas le magnétomètre. Le reste se
+juge debout devant le bâtiment.
+
+---
+
 ## Format du jeu de données
 
 `data.js` définit `window.CORTE_DATA` :
