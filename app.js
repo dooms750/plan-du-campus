@@ -374,7 +374,10 @@ void main(){}`;
     dist: 4200, dDist: 4200,
     theta: -0.85, dTheta: -0.85,
     phi: 0.62, dPhi: 0.62,
-    autoOrbit: true, idle: 0, hour: 17.3,
+    /* La rotation automatique désoriente quand on découvre le campus, et
+       gêne les personnes sensibles au mouvement : elle est désormais en
+       option, éteinte au départ. */
+    autoOrbit: false, idle: 0, hour: 17.3,
     showBuildings: true, showRoads: true, showLabels: true, glow: true,
     highlight: 1, activePlace: null, intro: true
   };
@@ -389,18 +392,34 @@ void main(){}`;
       // pictogramme : marcheur
       icon: '<circle cx="14.2" cy="3.6" r="2.5"/><path d="M12.4 8.2 8.6 10.6 6.9 15.4M12.4 8.2l3.6 1.1 2 4.1 3.1 1.1M13.1 12.4l-1.4 4.4 3.1 4.5M11.7 16.8l-4 4.6"/>'
     },
+    /* sans marches : escaliers exclus, fortes pentes évitées — fauteuil,
+       béquilles, poussette, grosse valise (schéma directeur handicap) */
+    pmr: {
+      label: 'Sans marches', col: [0.80, 0.66, 1.00], vmax: 1.0,
+      // pictogramme : fauteuil roulant
+      icon: '<circle cx="10.4" cy="3.6" r="2.1"/><path d="M10.6 7.4v6.2h6.1l2.6 5.6 2.1-.9"/><path d="M10.6 10.6h5"/><path d="M7.7 11.2a5.6 5.6 0 1 0 8.1 6.4"/>'
+    },
     drive: {
       label: 'En voiture', col: [0.56, 0.72, 1.00], vmax: 14.0,
       // pictogramme : voiture
       icon: '<path d="M3.6 14.6h16.8M5.4 14.6l1.9-5.2a2 2 0 0 1 1.9-1.3h6.4a2 2 0 0 1 1.9 1.3l1.9 5.2M4.4 14.6v3.6a1 1 0 0 0 1 1h1.3a1 1 0 0 0 1-1v-1.1M19.6 14.6v3.6a1 1 0 0 1-1 1h-1.3a1 1 0 0 1-1-1v-1.1"/><circle cx="7.6" cy="16.6" r="0.1"/><circle cx="16.4" cy="16.6" r="0.1"/>'
     }
   };
+  /* Le choix « Sans marches » est retenu sur l'appareil : quelqu'un en
+     fauteuil n'a pas à le redemander à chaque trajet. */
+  function prefMode() {
+    try { return localStorage.getItem('pdc-mode') === 'pmr' ? 'pmr' : 'walk'; } catch (_) { return 'walk'; }
+  }
+  function savePrefMode(m) {
+    if (m !== 'walk' && m !== 'pmr') return;
+    try { localStorage.setItem('pdc-mode', m); } catch (_) {}
+  }
   const ICON = (m, cls) =>
     `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${MODES[m].icon}</svg>`;
   const nav = {
-    graphs: { walk: null, drive: null },   // graphes construits à la demande
-    mode: 'walk',
+    graphs: { walk: null, pmr: null, drive: null },   // graphes construits à la demande
+    mode: prefMode(),       // 'walk' | 'pmr' | 'drive' — à pied ou sans marches, retenu d'une visite à l'autre
     pos: null,              // { x, y, acc, source: 'gps' | 'manuel' }
     marker: null,           // maillage du repère de départ
     destMark: null,         // maillage du repère d'arrivée
@@ -855,7 +874,8 @@ void main(){}`;
     [/Faculté des sciences/i, 'sciences fst fac licence'],
     [/^Médiathèque/i, 'mediatheque bibliotheque livres'],
     [/^Palazzu Naziunale$/i, 'palazzu naziunale palais national presidence president direction administration siege'],
-    [/^Caserne Padoue$/i, 'silex caserne padoue padua casarma innovation incubateur entreprises']
+    [/^Caserne Padoue$/i, 'silex caserne padoue padua casarma innovation incubateur entreprises'],
+    [/^Accompagnement handicap$/i, 'handicap pmr fauteuil accessibilite accessible amenagement amenagements tiers temps examen referent mission handicap dys trouble aide soutien ecoute']
   ];
   const ALIAS_GENRE = {
     biblio: 'bibliotheque livres travailler', resto: 'manger dejeuner diner',
@@ -888,7 +908,8 @@ void main(){}`;
     [/^Paoli Tech/i, ['paolitech']],
     [/Halle des sports/i, ['halle']],
     [/^Caserne Padoue$/i, ['silex', 'padoue']],
-    [/^Palazzu Naziunale$/i, ['palazzu', 'presidence']]
+    [/^Palazzu Naziunale$/i, ['palazzu', 'presidence']],
+    [/^Accompagnement handicap$/i, ['handicap', 'pmr']]
   ];
   const siglesFor = (name) => {
     for (const [re, codes] of SIGLES) if (re.test(name)) return codes;
@@ -903,6 +924,43 @@ void main(){}`;
   let index = [];        // { id, name, sub, cat, kind, x, y, uni, key, place }
   const objById = new Map();   // identifiant -> objet destination
   let salles = [];       // annuaire fourni par l'établissement
+  let acces = [];        // fiches d'accessibilité, fournies par l'établissement
+
+  /* Bureau d'accompagnement des étudiants en situation de handicap — pivot
+     du schéma directeur pluriannuel du handicap 2023-2027. Coordonnées
+     publiées sur studia.universita.corsica (rubrique Handicap). */
+  const AIDE = {
+    nom: 'Bureau d’accompagnement handicap',
+    lieu: 'Bâtiment Desanti, niveau 0 · Campus Grimaldi',
+    tel: '04 95 45 02 41',
+    mail: 'bureau.accompagnement@univ-corse.fr',
+    horaires: 'Lundi au jeudi 9 h–12 h et 13 h 30–17 h · vendredi 9 h–12 h',
+    page: 'https://studia.universita.corsica/article.php?id_site=1&id_menu=3&id_rub=135&id_cat=0&id_art=289&lang=fr',
+    sdh: 'https://studia.universita.corsica/plugins/actu/actu-front.php?id=8934'
+  };
+  const AIDE_PLACE = {
+    id: 'aide', name: 'Accompagnement handicap', sub: AIDE.lieu, kind: 'place',
+    alt: 'Bureau d’accompagnement, de soutien et d’écoute',
+    note: 'Aménagements des études et des examens (tiers-temps, preneur de notes…), aide à l’arrivée, '
+      + 'accès aux bâtiments. Prenez contact dès la rentrée, même sans dossier complet.',
+    x: 22, y: -231, r: 300, phi: 0.44, theta: 0.35, lift: 22
+  };
+  function aideContact() {
+    return `<div class="aide">
+      <span>${AIDE.horaires}</span>
+      <div class="aide-actions">
+        <a class="go" href="tel:${AIDE.tel.replace(/\s/g, '')}">Appeler · ${AIDE.tel}</a>
+        <a class="ghost" href="mailto:${AIDE.mail}">Écrire un courriel</a>
+        <a class="ghost" href="${AIDE.page}" target="_blank" rel="noopener">Page du service</a>
+        <a class="ghost" href="${AIDE.sdh}" target="_blank" rel="noopener">Schéma directeur handicap 2023-2027</a>
+      </div>
+    </div>`;
+  }
+  function accesPour(p) {
+    if (!acces.length || !p) return null;
+    const noms = [p.batiment, p.name, p.alt].filter(Boolean).map(fold);
+    return acces.find(a => noms.includes(fold(a.batiment))) || null;
+  }
   let cat = 'e';         // catégorie affichée sur le plan
   let query = '';
 
@@ -953,7 +1011,7 @@ void main(){}`;
         x: bat.x, y: bat.y, uni: 3,
         key: fold(s.code + ' ' + (s.nom || '') + ' ' + s.batiment),
         place: Object.assign({}, bat.place, {
-          id: 'salle:' + s.code, name: s.code,
+          id: 'salle:' + s.code, name: s.code, batiment: s.batiment,
           sub: s.nom || 'Salle',
           note: `Dans le ${s.batiment}${etage ? ', ' + etage : ''}.` + (s.info ? ' ' + s.info : '')
         })
@@ -1106,6 +1164,26 @@ void main(){}`;
     if (phoneLayout && sheet.dataset.state === 'open') setSheet('peek');
   }
 
+  /* Revenir à la liste et à la recherche sans bouger la carte : sur
+     téléphone, la fiche occupe la feuille, et un nouvel arrivant doit
+     toujours voir comment en sortir. */
+  function closeNote() {
+    state.activePlace = null;
+    if (nav.results) {
+      disposeVao(gl, nav.route); nav.route = null;
+      setDestMark(null); nav.info = null; nav.results = null; nav.fail = false;
+      renderRouteBar();
+    }
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('is-active'));
+    const note = document.getElementById('placeNote');
+    if (note) note.classList.remove('visible');
+    sheet.dataset.fiche = '0';
+    foldRail(false);
+    if (phoneLayout) setSheet('peek');
+    const find = document.getElementById('find');
+    if (find && !phoneLayout) find.focus();
+  }
+
   function overview() {
     state.dTarget = [0, 420, 0];
     state.dDist = 3400; state.dPhi = 0.52; state.dTheta = -0.85;
@@ -1136,7 +1214,8 @@ void main(){}`;
 
   function ensureGraph(mode) {
     if (!nav.graphs[mode]) {
-      navStatus(mode === 'drive' ? 'Construction du réseau routier…' : 'Construction du réseau piéton…');
+      navStatus(mode === 'drive' ? 'Construction du réseau routier…'
+        : mode === 'pmr' ? 'Construction du réseau sans marches…' : 'Construction du réseau piéton…');
       nav.graphs[mode] = buildGraph(feats, field, mode);
     }
     return nav.graphs[mode];
@@ -1155,7 +1234,10 @@ void main(){}`;
     }
     const lat = (CORTE_DATA.origin.lat + y / CORTE_DATA.mPerDegLat).toFixed(5);
     const lon = (CORTE_DATA.origin.lon + x / CORTE_DATA.mPerDegLon).toFixed(5);
-    navStatus(`${source === 'gps' ? 'Position' : 'Départ'} ${lat}°N ${lon}°E · ±${Math.round(nav.pos.acc)} m`);
+    navStatus(source === 'gps'
+      ? `Position trouvée, à ${Math.round(nav.pos.acc)} m près. Touchez un bâtiment pour le trajet.`
+      : 'Départ posé. Touchez un bâtiment pour le trajet.');
+    void lat; void lon;
 
     /* Le GPS envoie un point par seconde : relancer deux A* à chaque fois
        saccade le rendu pour rien. On ne recalcule qu'au-delà de 25 m de
@@ -1164,7 +1246,7 @@ void main(){}`;
     if (!dest) return;
     const now = performance.now();
     const drift = nav.lastSolve ? Math.hypot(nav.lastSolve.x - x, nav.lastSolve.y - y) : Infinity;
-    if (source !== 'gps' || (drift > 25 && now - nav.lastSolve.t > 3000) || !nav.results) {
+    if (source !== 'gps' || !nav.lastSolve || (drift > 25 && now - nav.lastSolve.t > 3000) || !nav.results) {
       nav.lastSolve = { x, y, t: now };
       computeRoute(dest, false);
     }
@@ -1193,8 +1275,9 @@ void main(){}`;
     // les raccords entre le point réel et le réseau se font toujours à pied
     return {
       dist: res.dist + res.snapDist,
-      time: res.time + res.snapDist / 1.25,
+      time: res.time + res.snapDist / (mode === 'pmr' ? 0.9 : 1.25),
       up: res.up, down: res.down, pts, mode,
+      steep: res.steep || 0, maxSlope: res.maxSlope || 0, stairs: res.stairs || 0,
       prof: profile(pts)
     };
   }
@@ -1285,6 +1368,7 @@ void main(){}`;
   function setMode(mode, dest) {
     if (!MODES[mode] || mode === nav.mode) return;
     nav.mode = mode;
+    savePrefMode(mode);
     drawRoute();
     renderRouteBar();
     if (nav.info) navStatus(`${MODES[mode].label} : ${fmtDist(nav.info.dist)} · ${fmtTime(nav.info.time)}`);
@@ -1294,12 +1378,13 @@ void main(){}`;
   function computeRoute(dest, reframe) {
     if (!nav.pos) return;
     nav.lastSolve = { x: nav.pos.x, y: nav.pos.y, t: performance.now() };
-    nav.results = { walk: solve(dest, 'walk'), drive: solve(dest, 'drive'), to: dest.id };
-    if (!nav.results[nav.mode] && nav.results[nav.mode === 'walk' ? 'drive' : 'walk']) {
-      nav.mode = nav.mode === 'walk' ? 'drive' : 'walk';
+    nav.results = { walk: solve(dest, 'walk'), pmr: solve(dest, 'pmr'), drive: solve(dest, 'drive'), to: dest.id };
+    if (!nav.results[nav.mode]) {
+      const alt = ['walk', 'pmr', 'drive'].find(m => nav.results[m]);
+      if (alt) nav.mode = alt;
     }
     drawRoute();
-    nav.fail = !nav.results.walk && !nav.results.drive;
+    nav.fail = !nav.results.walk && !nav.results.pmr && !nav.results.drive;
     if (nav.fail) {
       nav.results = null;
       navStatus('Aucun chemin continu vers ce site dans les données OpenStreetMap.');
@@ -1337,22 +1422,70 @@ void main(){}`;
     state.intro = false;
   }
 
+  /* Ce que le trajet affiché implique pour quelqu'un qui ne peut pas
+     prendre d'escalier. Le relief est un modèle à 30 m : les pentes sont
+     données comme ordres de grandeur, jamais comme une garantie. */
+  function accesRoute(i) {
+    if (nav.mode === 'walk' && i.stairs > 0 && nav.results.pmr) {
+      return `<p class="acces-msg">Ce trajet emprunte ${i.stairs > 1 ? i.stairs + ' escaliers' : 'un escalier'}.
+        <button class="lien" type="button" data-goto-mode="pmr">Voir le trajet sans marches</button></p>`;
+    }
+    if (nav.mode !== 'pmr') return '';
+    let t = 'Évite les escaliers relevés dans OpenStreetMap.';
+    if (i.steep > 40) t += ` Environ ${Math.round(i.steep / 10) * 10} m en pente forte (plus de 8 %) : prévoyez de l’aide.`;
+    else t += ' Pas de forte pente notable sur ce trajet.';
+    return `<p class="acces-msg acces-pmr">${t}
+      <span>Pentes estimées d’après le relief. Un doute, un obstacle ? <a href="tel:${AIDE.tel.replace(/\s/g, '')}">${AIDE.tel}</a></span></p>`;
+  }
+
+  /* Bloc « Accessibilité » d'un bâtiment, tiré de accessibilite.json quand
+     le service l'a renseigné. Rien n'est inventé : sans fiche, on renvoie
+     vers le bureau d'accompagnement plutôt que d'afficher un « accessible »
+     non vérifié. */
+  function accesFiche(p) {
+    const a = accesPour(p);
+    const uni = p.kind === 'campus' || (p.sub || '').includes('universitaire') || /^salle:/.test(p.id) || p.id === 'aide';
+    if (!a && !uni) return '';
+    if (p.id === 'aide') return '';
+    if (!a) {
+      return `<details class="acces"><summary>${ICON('pmr', 'acces-ic')}Accessibilité</summary>
+        <p>Accès en fauteuil, ascenseur, places réservées : pas encore renseignés pour ce lieu.
+        Le <button class="lien" type="button" data-goto="aide">bureau d’accompagnement</button> vous renseigne
+        et organise vos aménagements.</p></details>`;
+    }
+    const L = [];
+    const ligne = (k, v) => { if (v) L.push(`<li><b>${k}</b> ${v}</li>`); };
+    ligne('Entrée accessible', a.entree);
+    ligne('Ascenseur', a.ascenseur);
+    ligne('Toilettes adaptées', a.sanitaires);
+    ligne('Places réservées', a.stationnement);
+    ligne('À savoir', a.info);
+    return `<details class="acces" open><summary>${ICON('pmr', 'acces-ic')}Accessibilité</summary>
+      <ul>${L.join('')}</ul></details>`;
+  }
+
   function renderNote(p) {
     const el = document.getElementById('placeNote');
     if (!el) return;
-    let html = `<span class="eyebrow">${p.sub || 'Corte'}</span><strong>${p.name}</strong>`;
+    let html = `<button class="note-close" id="noteClose" type="button" aria-label="Fermer et revenir à la recherche">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+        <span>Retour</span></button>
+      <span class="eyebrow">${p.sub || 'Corte'}</span><strong>${p.name}</strong>`;
     if (p.note) html += `<span class="meta">${p.note}</span>` +
       `<button class="note-more" type="button" hidden>Lire la suite</button>`;
+    if (p.id === 'aide') html += aideContact();
+    html += accesFiche(p);
 
     if (nav.results && nav.results.to === p.id && nav.info) {
       const i = nav.info;
       const card = (m) => {
         const r = nav.results[m];
         const on = nav.mode === m;
-        return `<button class="mode" data-mode="${m}" type="button" aria-pressed="${on}"${r ? '' : ' disabled'}>
+        return `<button class="mode" data-mode="${m}" type="button" aria-pressed="${on}"${r ? '' : ' disabled'}
+          aria-label="${MODES[m].label}${r ? ' : ' + fmtTime(r.time) + ', ' + fmtDist(r.dist) : ', pas de trajet'}">
           ${ICON(m, 'mode-ic')}
           <em>${r ? fmtTime(r.time) : '—'}</em>
-          <span>${r ? fmtDist(r.dist) : MODES[m].label}</span>
+          <span>${MODES[m].label}</span>
         </button>`;
       };
       // même teinte que le tracé sur la carte, ramenée en espace d'affichage
@@ -1367,7 +1500,8 @@ void main(){}`;
           <span class="trip-line"></span>
           <span class="trip-pt trip-to"><i></i>${p.name}</span>
         </div>
-        <div class="mode-switch" role="group" aria-label="Mode de déplacement">${card('walk')}${card('drive')}</div>
+        <div class="mode-switch" role="group" aria-label="Mode de déplacement">${card('walk')}${card('pmr')}${card('drive')}</div>
+        ${accesRoute(i)}
         <div class="prof-wrap">
           ${profileSvg(i.prof, col())}
           <span class="prof-tag prof-up">+${Math.round(i.up)} m</span>
@@ -1404,6 +1538,8 @@ void main(){}`;
     sheet.dataset.fiche = '1';
     const b = document.getElementById('btnClearRoute');
     if (b) b.addEventListener('click', clearRoute);
+    const fermer = document.getElementById('noteClose');
+    if (fermer) fermer.addEventListener('click', closeNote);
     const g = document.getElementById('btnGoLocate');
     if (g) g.addEventListener('click', locateMe);
 
@@ -1422,6 +1558,10 @@ void main(){}`;
     if (phoneLayout) requestAnimationFrame(placeFab);
     el.querySelectorAll('.mode').forEach(btn =>
       btn.addEventListener('click', () => setMode(btn.dataset.mode, p)));
+    el.querySelectorAll('[data-goto-mode]').forEach(btn =>
+      btn.addEventListener('click', () => setMode(btn.dataset.gotoMode, p)));
+    el.querySelectorAll('[data-goto]').forEach(btn =>
+      btn.addEventListener('click', () => { const q = objById.get(btn.dataset.goto); if (q) flyTo(q); }));
   }
 
   function locateMe() {
@@ -1443,7 +1583,7 @@ void main(){}`;
           : err.code === 3 ? 'Délai dépassé, position non obtenue.'
           : 'Position indisponible.';
         if (fab) fab.dataset.on = 'false';
-        navStatus(msg + ' Utilisez « Départ manuel ».');
+        navStatus(msg + ' Gardez le doigt appuyé sur la carte pour poser un départ.');
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 4000 }
     );
@@ -1455,7 +1595,7 @@ void main(){}`;
     const lim = Math.abs(field.x0) - 40;
     if (Math.abs(x) > lim || Math.abs(y) > lim) {
       const km = Math.hypot(x, y) / 1000;
-      navStatus(`Vous êtes à ${km < 10 ? km.toFixed(1).replace('.', ',') : Math.round(km)} km de Corte, hors de l’emprise de la carte. Utilisez « Départ manuel ».`);
+      navStatus(`Vous êtes à ${km < 10 ? km.toFixed(1).replace('.', ',') : Math.round(km)} km de Corte, hors de la carte. Gardez le doigt appuyé sur la carte pour poser un départ.`);
       return;
     }
     const first = !nav.pos;
@@ -1674,7 +1814,8 @@ void main(){}`;
           : 'Rien à ce nom. Essayez « Desanti », « RU », « bibliothèque », « gare ».';
       }
     } else {
-      rows = index.filter(e => e.kind === 'site');
+      rows = index.filter(e => e.kind === 'site' && e.id !== 'aide');
+      for (const r of essentiels()) el.appendChild(r);
     }
     for (const e of rows) {
       const b = document.createElement('button');
@@ -1694,6 +1835,89 @@ void main(){}`;
     }
     document.querySelectorAll('.nav-item').forEach(b =>
       b.classList.toggle('is-active', b.dataset.id === state.activePlace));
+  }
+
+  /* ---------- premiers pas ----------
+     Un étudiant de première année ne connaît ni « Grimaldi » ni « Desanti » :
+     il connaît sa formation. L'accueil part donc de là, et la liste
+     d'ouverture donne d'abord l'essentiel — ses cours, la BU, le RU, le
+     bureau d'accompagnement — avant les noms de campus. */
+  const FACS = [
+    { id: 'droit',   label: 'Droit, science politique', lieu: 'Faculté de droit et sciences sociales' },
+    { id: 'lettres', label: 'Lettres, langues, sciences humaines', lieu: 'Faculté des lettres et sciences humaines' },
+    { id: 'iae',     label: 'Économie, gestion (IAE)', lieu: 'École de Management et d\'économie IAE' },
+    { id: 'fst',     label: 'Sciences et techniques', lieu: 'Faculté des sciences et techniques' },
+    { id: 'sante',   label: 'Santé (IUS)', lieu: 'Institut universitaire de santé' },
+    { id: 'iut',     label: 'IUT (BUT)', lieu: 'IUT di Corsica' },
+    { id: 'ing',     label: 'Paoli Tech, ingénieurs', lieu: 'Paoli Tech · école d’ingénieurs' },
+    { id: 'inspe',   label: 'INSPÉ, enseignement', lieu: 'INSPÉ · professorat et éducation' }
+  ];
+  const placeNamed = (nom) => {
+    const e = index.find(x => fold(x.name) === fold(nom));
+    return e ? e.place : null;
+  };
+  function maFac() {
+    let id = null;
+    try { id = localStorage.getItem('pdc-fac'); } catch (_) {}
+    return FACS.find(f => f.id === id) || null;
+  }
+
+  function essentiels() {
+    const out = [];
+    const ligne = (nom, sous, onClick, cls, id) => {
+      const b = document.createElement('button');
+      b.className = 'nav-item is-quick' + (cls ? ' ' + cls : '');
+      b.type = 'button';
+      if (id) b.dataset.id = id;
+      b.innerHTML = `<span class="ni-name">${nom}</span><span class="ni-sub">${sous}</span>`;
+      b.addEventListener('click', onClick);
+      out.push(b);
+    };
+    const fac = maFac();
+    const lieu = fac && placeNamed(fac.lieu);
+    if (lieu) ligne('Mes cours', fac.label, () => flyTo(lieu), 'is-fac', lieu.id);
+    else ligne('Où ai-je cours ?', 'Choisir ma formation', () => openWelcome(), 'is-fac');
+    const bu = placeNamed('Bibliothèque universitaire');
+    if (bu) ligne('BU', 'Bibliothèque · campus Grimaldi', () => flyTo(bu), '', bu.id);
+    const ru = placeNamed('Restaurant Universitaire');
+    if (ru) ligne('RU', 'Restaurant universitaire', () => flyTo(ru), '', ru.id);
+    const aide = objById.get('aide');
+    if (aide) ligne('Handicap', 'Bureau d’accompagnement', () => flyTo(aide), 'is-aide', 'aide');
+    return out;
+  }
+
+  function openWelcome() {
+    const wel = document.getElementById('welcome');
+    if (!wel) return;
+    const grid = document.getElementById('facGrid');
+    const fac = maFac();
+    grid.innerHTML = '';
+    for (const f of FACS) {
+      const lieu = placeNamed(f.lieu);
+      if (!lieu) continue;
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'fac' + (fac && fac.id === f.id ? ' is-on' : '');
+      b.textContent = f.label;
+      b.addEventListener('click', () => {
+        try { localStorage.setItem('pdc-fac', f.id); } catch (_) {}
+        closeWelcome();
+        renderList();
+        flyTo(lieu);
+      });
+      grid.appendChild(b);
+    }
+    const pmr = document.getElementById('prefPmr');
+    pmr.checked = nav.mode === 'pmr';
+    wel.hidden = false;
+    // le focus va au titre, pas à une formation : rien ne doit sembler déjà choisi
+    const titre = document.getElementById('welcomeTitle');
+    if (titre) { titre.tabIndex = -1; titre.focus({ preventScroll: true }); }
+  }
+  function closeWelcome() {
+    const wel = document.getElementById('welcome');
+    if (wel) wel.hidden = true;
+    try { localStorage.setItem('pdc-vu', '2'); } catch (_) {}
   }
 
   function setCat(c) {
@@ -1733,7 +1957,7 @@ void main(){}`;
         query = find.value;
         if (findClear) findClear.hidden = !query;
         if (head) head.textContent = query.trim()
-          ? 'Résultats' : 'Campus & repères';
+          ? 'Résultats' : 'L’essentiel';
         renderList();
       };
       find.addEventListener('input', sync);
@@ -1748,19 +1972,21 @@ void main(){}`;
       if (findClear) findClear.addEventListener('click', () => { find.value = ''; sync(); find.focus(); });
     }
 
-    // carte de bienvenue, une seule fois par appareil
+    // accueil, une seule fois par appareil ; « Mes cours » le rouvre
     const wel = document.getElementById('welcome');
-    const welGo = document.getElementById('welcomeGo');
     let vu = false;
-    try { vu = localStorage.getItem('pdc-vu') === '1'; } catch (_) {}
-    if (wel && !vu) {
-      wel.hidden = false;
-      const close = () => {
-        wel.hidden = true;
-        try { localStorage.setItem('pdc-vu', '1'); } catch (_) {}
-      };
-      if (welGo) welGo.addEventListener('click', close);
-      wel.addEventListener('click', (e) => { if (e.target === wel) close(); });
+    try { vu = localStorage.getItem('pdc-vu') === '2'; } catch (_) {}
+    if (wel) {
+      document.getElementById('welcomeSkip').addEventListener('click', () => { closeWelcome(); renderList(); });
+      wel.addEventListener('click', (e) => { if (e.target === wel) closeWelcome(); });
+      wel.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeWelcome(); });
+      document.getElementById('prefPmr').addEventListener('change', (e) => {
+        const m = e.target.checked ? 'pmr' : 'walk';
+        savePrefMode(m);
+        nav.mode = m;
+        if (nav.results) { drawRoute(); renderRouteBar(); const d = objById.get(nav.results.to); if (d) renderNote(d); }
+      });
+      if (!vu) openWelcome();
     }
     const foldBtn = document.getElementById('railFold');
     if (foldBtn) foldBtn.addEventListener('click', () =>
@@ -1772,10 +1998,10 @@ void main(){}`;
       el.addEventListener('click', () => { state[key] = !state[key]; sync(); });
       sync();
     };
-    bind('tBuildings', 'showBuildings', 'Bâti', 'Bâti');
-    bind('tRoads', 'showRoads', 'Voirie', 'Voirie');
-    bind('tLabels', 'showLabels', 'Étiquettes', 'Étiquettes');
-    bind('tOrbit', 'autoOrbit', 'Orbite auto', 'Orbite auto');
+    bind('tBuildings', 'showBuildings', 'Bâtiments', 'Bâtiments');
+    bind('tRoads', 'showRoads', 'Rues', 'Rues');
+    bind('tLabels', 'showLabels', 'Noms', 'Noms');
+    bind('tOrbit', 'autoOrbit', 'Rotation lente', 'Rotation lente');
 
     const locate = document.getElementById('btnLocate');
     if (locate) locate.addEventListener('click', locateMe);
@@ -1920,6 +2146,18 @@ void main(){}`;
   /* Annuaire des salles : fichier optionnel, tenu par l'établissement.
      Absent, illisible ou ouvert en file:// — on continue sans, la recherche
      porte alors sur les bâtiments seuls. */
+  /* Fiches d'accessibilité des bâtiments : même principe que les salles,
+     fichier tenu par l'établissement, l'application fonctionne sans. */
+  async function loadAcces() {
+    try {
+      const r = await fetch('accessibilite.json', { cache: 'no-cache' });
+      if (!r.ok) return [];
+      const j = await r.json();
+      const arr = Array.isArray(j) ? j : (j.batiments || []);
+      return arr.filter(a => a && a.batiment);
+    } catch (_) { return []; }
+  }
+
   async function loadSalles() {
     try {
       const r = await fetch('salles.json', { cache: 'no-cache' });
@@ -1931,7 +2169,7 @@ void main(){}`;
   }
 
 
-  /* ================= boussole et vue caméra =================
+  /* ================= vue caméra =================
    *
    * Pourquoi pas WebXR : Safari sur iPhone n'expose toujours pas les
    * sessions immersive-ar. On compose donc à la main — flux de la caméra
@@ -1949,7 +2187,7 @@ void main(){}`;
   const AR_PORTEE = 1400;                 // au-delà, on n'affiche plus rien
 
   const ar = {
-    ouvert: false, mode: 'boussole',
+    ouvert: false,
     cap: null, capPrecision: null, tangage: 0,
     base: null,            // repère de l'appareil : avant / droite / haut, en (est, nord, haut)
     offset: 0,             // recalage manuel, en degrés
@@ -2131,7 +2369,7 @@ void main(){}`;
       const attente = performance.now() - (ar.depuis || 0);
       arEtat(attente > 4500
         ? 'Cet appareil ne fournit pas de cap : la visée n’est possible que sur un téléphone.'
-        : 'En attente de la boussole — décrivez un 8 avec le téléphone.');
+        : 'En attente de l’orientation du téléphone — décrivez un 8 avec lui.');
       return;
     }
 
@@ -2154,9 +2392,7 @@ void main(){}`;
       document.getElementById('arDist').textContent = '';
     }
 
-    // étiquettes, seulement en vue caméra
     const couche = document.getElementById('arLabels');
-    if (ar.mode !== 'camera') { for (const [, el] of ar.els) el.style.display = 'none'; arEtat(arEtatTexte()); return; }
 
     const aspect = W / Math.max(1, H);
     const fovV = 2 * Math.atan(Math.tan(AR_FOV_H / 2) / aspect);
@@ -2211,9 +2447,9 @@ void main(){}`;
   function arEtatTexte() {
     if (ar.message && performance.now() < ar.messageJusqu) return ar.message;
     const bits = [];
-    if (ar.capPrecision != null) bits.push('boussole ±' + Math.round(ar.capPrecision) + '°');
-    else bits.push('boussole non calibrée');
-    if (ar.mode === 'camera') bits.push('les noms en pointillé sont masqués par le relief ou le bâti');
+    if (!ar.flux) bits.push('caméra éteinte : les noms restent placés dans la bonne direction');
+    if (ar.capPrecision != null) bits.push('orientation ±' + Math.round(ar.capPrecision) + '°');
+    bits.push('un nom en pointillé est caché par une colline ou un bâtiment');
     return bits.join(' · ');
   }
   function arPose(t) { const el = document.getElementById('arEtat'); if (el) el.textContent = t; }
@@ -2255,17 +2491,17 @@ void main(){}`;
     if (v) v.srcObject = null;
   }
 
-  async function arMode(m) {
-    if (m === 'camera' && !(await arCameraOn())) {
-      arDit('Caméra indisponible ou refusée — le mode boussole fonctionne quand même.', 7);
-      m = 'boussole';
-    }
-    if (m !== 'camera') arCameraOff();
-    ar.mode = m;
-    document.getElementById('ar').dataset.mode = m;
-    document.getElementById('arBoussole').setAttribute('aria-pressed', String(m === 'boussole'));
-    document.getElementById('arCamera').setAttribute('aria-pressed', String(m === 'camera'));
-    if (m !== 'camera') for (const [, el] of ar.els) el.style.display = 'none';
+  /* La vue caméra est le seul mode : l'ancien mode « boussole » (une flèche
+     sur fond uni) a été retiré, il déroutait plus qu'il n'aidait. Si la
+     caméra est refusée, les noms et la flèche restent sur un fond neutre,
+     et un bouton permet de redemander l'accès. */
+  async function arCamera() {
+    const ok = await arCameraOn();
+    document.getElementById('ar').dataset.camera = ok ? 'on' : 'off';
+    const retry = document.getElementById('arRetry');
+    if (retry) retry.hidden = ok;
+    if (!ok) arDit('Caméra refusée ou indisponible. Autorisez-la dans les réglages du navigateur, puis touchez « Autoriser la caméra ».', 9);
+    return ok;
   }
 
   async function arVeille(actif) {
@@ -2279,20 +2515,21 @@ void main(){}`;
     } catch (_) { ar.veille = null; }
   }
 
-  async function arOuvre(mode) {
+  async function arOuvre() {
     const boite = document.getElementById('ar');
     if (!boite) return;
     boite.hidden = false;
     ar.ouvert = true;
+    document.getElementById('arClose').focus();
     ar.sansCap = true;
     ar.depuis = performance.now();
     if (await arPermissionCap()) {
       window.addEventListener('deviceorientationabsolute', arOrientation, true);
       window.addEventListener('deviceorientation', arOrientation, true);
     } else {
-      arDit('Accès à la boussole refusé — impossible de savoir où vous regardez.', 9);
+      arDit('Accès à l’orientation du téléphone refusé : impossible de savoir où vous regardez.', 9);
     }
-    await arMode(mode || 'boussole');
+    await arCamera();
     arVeille(true);
     arChoix();
     if (!nav.pos) locateMe();
@@ -2308,7 +2545,9 @@ void main(){}`;
     window.removeEventListener('deviceorientation', arOrientation, true);
     arCameraOff();
     const boite = document.getElementById('ar');
-    if (boite) boite.hidden = true;
+    if (boite) { boite.hidden = true; boite.dataset.camera = 'off'; }
+    const porte = document.getElementById('fabAr');
+    if (porte) porte.focus();
   }
 
   window.__enVeille = () => !!ar.ouvert;
@@ -2351,10 +2590,10 @@ void main(){}`;
     const boite = document.getElementById('ar');
     if (!boite) return;
     const porte = document.getElementById('fabAr');
-    if (porte) porte.addEventListener('click', () => arOuvre('boussole'));
+    if (porte) porte.addEventListener('click', () => arOuvre());
     document.getElementById('arClose').addEventListener('click', arFerme);
-    document.getElementById('arBoussole').addEventListener('click', () => arMode('boussole'));
-    document.getElementById('arCamera').addEventListener('click', () => arMode('camera'));
+    const retry = document.getElementById('arRetry');
+    if (retry) retry.addEventListener('click', () => arCamera());
     const off = document.getElementById('arOffset');
     const offOut = document.getElementById('arOffsetOut');
     off.addEventListener('input', () => {
@@ -2419,7 +2658,8 @@ void main(){}`;
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
       places = CORTE_DATA.places.map(p => ({ ...p }));
-      salles = await loadSalles();
+      places.push({ ...AIDE_PLACE });
+      [salles, acces] = await Promise.all([loadSalles(), loadAcces()]);
       buildIndex();
       makeLabels();
       buildUI();
@@ -2437,6 +2677,12 @@ void main(){}`;
       state.target = [40, 900, -140];
       state.dTarget = [40, 430, -140]; state.dDist = 1700; state.dPhi = 0.44; state.dTheta = -0.74;
       state.intro = true;
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        // pas de survol d'ouverture : on arrive directement sur le cadrage final
+        state.dist = state.dDist; state.phi = state.dPhi; state.theta = state.dTheta;
+        state.target = state.dTarget.slice();
+        state.intro = false;
+      }
       loader.classList.add('done');
       setTimeout(() => loader.remove(), 900);
       requestAnimationFrame(frame);

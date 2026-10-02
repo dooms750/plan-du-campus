@@ -12,7 +12,7 @@
  * à l'activation.
  */
 
-const VERSION = 'v17';
+const VERSION = 'v18';
 const SHELL = `plan-du-campus-${VERSION}`;
 const RUNTIME = `plan-du-campus-runtime-${VERSION}`;
 
@@ -38,6 +38,7 @@ const ASSETS = [
      tel quel. Aucun risque de péremption, le cache entier est reconstruit
      à chaque changement de VERSION. */
   'salles.json',
+  'accessibilite.json',
   'manifest.webmanifest',
   'icons/icon-192.png',
   'icons/icon-512.png',

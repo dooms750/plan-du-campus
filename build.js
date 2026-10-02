@@ -386,6 +386,26 @@ const WALK_PEN = [0, 0, 1.32, 1.24, 1.14, 1.06, 1.00, 0.96, 1.06, 0.92, 1.14, 0.
 /* vitesse de circulation effective en m/s par classe ; 0 = voie interdite ou impraticable */
 const CAR_SPEED = [25, 22, 12.5, 12.5, 11, 10, 7.5, 5, 4, 0, 5, 0, 0, 0, 0];
 
+/* Itinéraire accessible (fauteuil, béquilles, poussette, valise…) :
+   les escaliers sont exclus, les chemins de terre et les pistes pénalisés,
+   et chaque tronçon est pondéré par sa pente. Repères tirés de l'arrêté du
+   15 janvier 2007 sur la voirie accessible : 5 % sans limite de longueur,
+   jusqu'à 8 % sur 2 m et 12 % sur 0,50 m. Sur un relief échantillonné à
+   30 m, une pente supérieure à 8 % signale donc un passage à éviter.     */
+const STEPS_CLASS = 13;
+const PMR_PEN = [0, 0, 1.30, 1.22, 1.12, 1.05, 1.00, 0.96, 1.04, 0.92, 2.2, 0.95, 1.9, 0, 1.00];
+const PMR_V = 1.0;                        // m/s sur le plat, fauteuil manuel ou marche lente
+function pmrSlopePen(slope) {
+  const s = Math.abs(slope);
+  return s <= 0.05 ? 1 : s <= 0.08 ? 1.8 : s <= 0.12 ? 4 : 9;
+}
+function pmrTime(d2, dz) {
+  const s = d2 > 0.5 ? dz / d2 : 0;
+  // la montée ralentit nettement, la descente un peu (freinage)
+  const v = PMR_V / (1 + (s > 0 ? 7 : 2) * Math.abs(s));
+  return d2 / Math.max(0.25, v);
+}
+
 /* drapeaux portés par les voies (octet `flag`) */
 const ONEWAY_FWD = 1, ONEWAY_REV = 2, NO_CAR = 4;
 
@@ -399,10 +419,12 @@ function edgeCost(d2, dz, pen) {
   return (d2 / Math.max(0.30, walkSpeed(s))) * pen;
 }
 
-/* mode 'walk' (défaut) ou 'drive' : à pied les sens uniques sont ignorés,
-   en voiture ils sont respectés et les voies piétonnes exclues */
+/* mode 'walk' (défaut), 'pmr' ou 'drive' : à pied les sens uniques sont
+   ignorés, en voiture ils sont respectés et les voies piétonnes exclues ;
+   le mode accessible marche comme le piéton, sans escaliers ni fortes pentes */
 function buildGraph(feats, field, mode) {
   const drive = mode === 'drive';
+  const pmr = mode === 'pmr';
   const nodes = [];
   const adj = [];
   const index = new Map();
@@ -419,7 +441,7 @@ function buildGraph(feats, field, mode) {
   };
   for (const f of feats) {
     if (f.kind !== KIND.ROAD) continue;
-    const pen = WALK_PEN[f.sub];
+    const pen = pmr ? PMR_PEN[f.sub] : WALK_PEN[f.sub];
     const speed = CAR_SPEED[f.sub];
     if (drive) { if (!speed || (f.flag & NO_CAR)) continue; }
     else if (!pen) continue;
@@ -434,10 +456,19 @@ function buildGraph(feats, field, mode) {
         const d2 = Math.hypot(b.x - a.x, b.y - a.y);
         if (d2 > 0.2) {
           const dz = b.z - a.z;
-          const cf = drive ? d2 / speed : edgeCost(d2, dz, pen);
-          const cr = drive ? d2 / speed : edgeCost(d2, -dz, pen);
-          if (fwd) adj[prev].push({ to: id, c: cf, d: d2, dz });
-          if (rev) adj[id].push({ to: prev, c: cr, d: d2, dz: -dz });
+          if (pmr) {
+            /* le coût guide le choix (pentes évitées), le temps reste réel */
+            const k = pmrSlopePen(dz / d2) * pen;
+            const tf = pmrTime(d2, dz), tr = pmrTime(d2, -dz);
+            if (fwd) adj[prev].push({ to: id, c: tf * k, t: tf, d: d2, dz });
+            if (rev) adj[id].push({ to: prev, c: tr * k, t: tr, d: d2, dz: -dz });
+          } else {
+            const cf = drive ? d2 / speed : edgeCost(d2, dz, pen);
+            const cr = drive ? d2 / speed : edgeCost(d2, -dz, pen);
+            const st = f.sub === STEPS_CLASS ? 1 : 0;   // escalier : signalé dans la fiche
+            if (fwd) adj[prev].push({ to: id, c: cf, d: d2, dz, st });
+            if (rev) adj[id].push({ to: prev, c: cr, d: d2, dz: -dz, st });
+          }
         }
       }
       prev = id;
@@ -552,14 +583,28 @@ function findRoute(graph, from, to, vmax) {
   const path = [];
   for (let i = to; i >= 0; i = prev[i]) path.push(i);
   path.reverse();
-  let dist = 0, up = 0, down = 0;
+  /* Durée : le coût de l'arc, sauf quand l'arc porte un temps réel distinct
+     (mode accessible, où le coût est gonflé pour éviter les pentes). On en
+     profite pour mesurer la longueur parcourue en pente forte. */
+  let dist = 0, up = 0, down = 0, time = 0, steep = 0, maxSlope = 0, stairs = 0, wasStair = false;
   for (let i = 1; i < path.length; i++) {
-    const a = graph.nodes[path[i - 1]], b = graph.nodes[path[i]];
-    dist += Math.hypot(b.x - a.x, b.y - a.y);
+    const u = path[i - 1], v = path[i];
+    const a = graph.nodes[u], b = graph.nodes[v];
+    const d = Math.hypot(b.x - a.x, b.y - a.y);
+    dist += d;
     const dz = b.z - a.z;
     if (dz > 0) up += dz; else down -= dz;
+    let e = null;
+    for (const x of graph.adj[u]) if (x.to === v && (!e || x.c < e.c)) e = x;
+    time += e ? (e.t != null ? e.t : e.c) : 0;
+    const isStair = !!(e && e.st);
+    if (isStair && !wasStair) stairs++;          // une volée = une suite d'arcs d'escalier
+    wasStair = isStair;
+    const sl = d > 0.5 ? Math.abs(dz) / d : 0;
+    if (sl > 0.08) steep += d;
+    if (d > 8 && sl > maxSlope) maxSlope = sl;
   }
-  return { path, dist, time: g[to], up, down };
+  return { path, dist, time, up, down, steep, maxSlope, stairs };
 }
 
 /* ---------- rubans dynamiques (tracé, repère de position) ---------- */
@@ -768,14 +813,14 @@ function insertVirtual(graph, snap, restore) {
   if (!ref) return id;
   const dA = ref.d * snap.t, dB = ref.d * (1 - snap.t);
   if (ab) {
-    graph.adj[id].push({ to: snap.b, c: ab.c * (1 - snap.t), d: dB, dz: B.z - z });
+    graph.adj[id].push({ to: snap.b, c: ab.c * (1 - snap.t), t: ab.t != null ? ab.t * (1 - snap.t) : undefined, st: ab.st, d: dB, dz: B.z - z });
     restore.push([snap.a, graph.adj[snap.a].length]);
-    graph.adj[snap.a].push({ to: id, c: ab.c * snap.t, d: dA, dz: z - A.z });
+    graph.adj[snap.a].push({ to: id, c: ab.c * snap.t, t: ab.t != null ? ab.t * snap.t : undefined, st: ab.st, d: dA, dz: z - A.z });
   }
   if (ba) {
-    graph.adj[id].push({ to: snap.a, c: ba.c * snap.t, d: dA, dz: A.z - z });
+    graph.adj[id].push({ to: snap.a, c: ba.c * snap.t, t: ba.t != null ? ba.t * snap.t : undefined, st: ba.st, d: dA, dz: A.z - z });
     restore.push([snap.b, graph.adj[snap.b].length]);
-    graph.adj[snap.b].push({ to: id, c: ba.c * (1 - snap.t), d: dB, dz: z - B.z });
+    graph.adj[snap.b].push({ to: id, c: ba.c * (1 - snap.t), t: ba.t != null ? ba.t * (1 - snap.t) : undefined, st: ba.st, d: dB, dz: z - B.z });
   }
   return id;
 }
@@ -802,6 +847,7 @@ function routePoints(graph, from, to, vmax, tries) {
           const pts = [];
           for (const i of res.path) pts.push(graph.nodes[i].x, graph.nodes[i].y);
           out = { dist: res.dist, time: res.time, up: res.up, down: res.down, pts,
+                  steep: res.steep, maxSlope: res.maxSlope, stairs: res.stairs,
                   snapDist: A[ia].dist + B[ib].dist };
         }
       }

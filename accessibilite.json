@@ -1,0 +1,27 @@
+{
+  "_lisezmoi": [
+    "Accessibilité des bâtiments de l'Università di Corsica — à remplir par le service patrimoine",
+    "et le bureau d'accompagnement, dans le cadre du schéma directeur pluriannuel du handicap 2023-2027.",
+    "",
+    "Tant que « batiments » est vide, la fiche de chaque bâtiment renvoie vers le bureau",
+    "d'accompagnement : l'application n'affiche jamais « accessible » sans information vérifiée.",
+    "",
+    "Une entrée par bâtiment, tous les champs sauf « batiment » sont facultatifs (une phrase chacun) :",
+    "  batiment      obligatoire — un nom de la liste « _batiments » de salles.json",
+    "                              (ou « Campus Grimaldi », « Campus Mariani »…)",
+    "  entree        où est l'entrée de plain-pied : « Porte nord, côté parking, rampe 5 % »",
+    "  ascenseur     « Oui, tous niveaux, hall principal » ou « Non — étages inaccessibles »",
+    "  sanitaires    « Rez-de-chaussée, à gauche de l'accueil »",
+    "  stationnement « 2 places réservées devant l'entrée nord »",
+    "  info          tout le reste : boucle magnétique, bandes podotactiles, porte lourde…",
+    "",
+    "Exemple (fictif, ne pas publier tel quel) :",
+    "  { \"batiment\": \"Bâtiment Jean-Toussaint Desanti\",",
+    "    \"entree\": \"Entrée principale de plain-pied, côté parvis\",",
+    "    \"ascenseur\": \"Oui, dessert tous les niveaux\" }",
+    "",
+    "Après modification, incrémenter VERSION dans sw.js."
+  ],
+
+  "batiments": []
+}

@@ -18,8 +18,8 @@
   :root {
     --ground: #090d0f;
     --ink: #edf0ea;
-    --ink-dim: #9ba69c;
-    --ink-faint: #6f7a71;
+    --ink-dim: #aab4ab;
+    --ink-faint: #8f9a90;   /* relevé pour un contraste ≥ 4,5:1 sur les panneaux (RGAA) */
     --panel: rgba(10, 16, 18, 0.62);
     --panel-solid: rgba(10, 16, 18, 0.9);
     --edge: rgba(237, 240, 234, 0.13);
@@ -205,8 +205,8 @@
   .nav-item:hover { background: rgba(242, 179, 66, 0.07); }
   .nav-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
   .nav-item.is-active { background: var(--accent-soft); border-left-color: var(--accent); }
-  .ni-name { font-size: 13.5px; font-weight: 500; line-height: 1.25; }
-  .ni-sub { font-size: 11px; color: var(--ink-dim); line-height: 1.3; }
+  .ni-name { font-size: 14.5px; font-weight: 500; line-height: 1.25; }
+  .ni-sub { font-size: 12px; color: var(--ink-dim); line-height: 1.3; }
 
   .rail-foot {
     padding: 9px 14px 11px;
@@ -218,11 +218,9 @@
   #navStatus {
     flex-basis: 100%;
     margin: 3px 0 0;
-    font-family: var(--mono);
-    font-size: 10.5px;
+    font-size: 12.5px;
     line-height: 1.45;
-    color: var(--ink-faint);
-    font-variant-numeric: tabular-nums;
+    color: var(--ink-dim);
   }
   .ghost {
     appearance: none;
@@ -231,8 +229,8 @@
     border-radius: 2px;
     color: var(--ink);
     font: inherit;
-    font-size: 11.5px;
-    padding: 6px 10px;
+    font-size: 12.5px;
+    padding: 7px 11px;
     cursor: pointer;
     transition: background 0.16s ease, border-color 0.16s ease;
   }
@@ -240,6 +238,8 @@
   .ghost:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .ghost[aria-pressed="false"] { color: var(--ink-faint); border-color: var(--edge); }
   .ghost[aria-pressed="true"] { border-color: var(--accent); color: var(--ink); }
+  /* bouton d'action, pas un interrupteur d'affichage : il ne doit pas sembler désactivé */
+  #btnStart[aria-pressed="false"] { color: var(--ink); border-color: var(--edge-strong); }
 
   /* ---------- chercheur ---------- */
   .finder { padding: 10px 12px 9px; border-bottom: 1px solid var(--edge); display: grid; gap: 8px; }
@@ -316,17 +316,19 @@
     position: absolute; inset: 0;
     width: 100%; height: 100%;
     object-fit: cover;
-    display: none;
+    display: block;
     background: #05080a;
   }
-  .ar[data-mode="camera"] #arVideo { display: block; }
-  /* en mode boussole, un dégradé tient lieu d'horizon */
+  /* tant que la caméra n'a pas répondu (ou si elle est refusée), un dégradé
+     tient lieu de fond plutôt qu'un écran noir */
   .ar-sky {
     position: absolute; inset: 0;
+    display: none;
     background:
       linear-gradient(to bottom, #16222a 0%, #26333a 48%, #1b2420 52%, #0d1412 100%);
   }
-  .ar[data-mode="camera"] .ar-sky { display: none; }
+  .ar[data-camera="off"] .ar-sky { display: block; }
+  .ar[data-camera="off"] #arVideo { display: none; }
   .ar-labels { position: absolute; inset: 0; pointer-events: none; }
   .ar-lab {
     position: absolute; left: 0; top: 0;
@@ -364,13 +366,13 @@
   .ar-arrow {
     position: absolute;
     left: 50%; top: 50%;
-    width: min(56vw, 240px); height: min(56vw, 240px);
+    width: 96px; height: 96px;
+    top: 38%;
     margin: 0;
     transform: translate(-50%, -50%);
     pointer-events: none;
     transition: opacity 0.2s ease;
   }
-  .ar[data-mode="camera"] .ar-arrow { width: 96px; height: 96px; top: auto; bottom: 168px; left: 50%; }
   .ar-ring { fill: rgba(9, 13, 15, 0.35); stroke: var(--edge); stroke-width: 1.5; }
   .ar-tip { fill: var(--teal); filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.5)); }
   .ar[data-loin="true"] .ar-tip { fill: var(--accent); }
@@ -396,31 +398,38 @@
     font-size: 24px; line-height: 1;
     cursor: pointer;
   }
-  .ar-modes { display: flex; gap: 5px; }
-  .ar-mode {
-    appearance: none;
+  .ar-titre {
     border: 1px solid var(--edge);
     background: rgba(9, 13, 15, 0.7);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     border-radius: 999px;
-    color: var(--ink-faint);
-    font: inherit; font-size: 12.5px;
+    color: var(--ink);
+    font-size: 13px;
+    padding: 8px 14px 9px;
+  }
+  .ar-retry {
+    appearance: none;
+    justify-self: start;
+    border: 1px solid var(--teal);
+    background: rgba(116, 185, 174, 0.18);
+    border-radius: 999px;
+    color: var(--ink);
+    font: inherit; font-size: 13px;
     padding: 8px 14px 9px;
     cursor: pointer;
   }
-  .ar-mode[aria-pressed="true"] { border-color: var(--teal); color: var(--ink); background: rgba(116, 185, 174, 0.22); }
+  .ar-retry[hidden] { display: none; }
 
   .ar-choixs {
-    position: absolute;
-    left: 0; right: 0;
-    bottom: calc(126px + env(safe-area-inset-bottom, 0px));
     display: flex;
     gap: 6px;
     overflow-x: auto;
     scrollbar-width: none;
-    padding: 0 12px 2px;
+    margin: -2px -14px 4px;
+    padding: 0 14px 2px;
   }
+  .ar-choixs:empty { display: none; }
   .ar-choixs::-webkit-scrollbar { display: none; }
   .ar-choix {
     appearance: none;
@@ -484,7 +493,9 @@
     -webkit-backdrop-filter: blur(5px);
   }
   .welcome-card {
-    width: min(100%, 380px);
+    width: min(100%, 440px);
+    max-height: 100%;
+    overflow-y: auto;
     background: var(--panel-solid);
     border: 1px solid var(--edge);
     border-left: 2px solid var(--accent);
@@ -496,16 +507,14 @@
   .welcome-card h2 {
     font-family: var(--display); font-weight: 600; font-size: 21px; margin: 0; line-height: 1.15;
   }
-  .welcome-card ol { margin: 2px 0 0; padding-left: 19px; display: grid; gap: 7px; }
-  .welcome-card li { font-size: 13px; line-height: 1.5; color: var(--ink-dim); }
-  .welcome-card li b { color: var(--ink); font-weight: 600; }
+
   .welcome-note { margin: 3px 0 4px; font-size: 11.5px; line-height: 1.5; color: var(--ink-faint); }
 
   /* ---------- place note ---------- */
   .note {
     justify-self: end;
     align-self: start;
-    width: min(100%, 250px);
+    width: min(100%, 300px);
     background: var(--panel);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
@@ -520,8 +529,9 @@
     transition: opacity 0.35s ease, transform 0.35s ease;
   }
   .note.visible { opacity: 1; transform: none; }
-  .note strong { font-family: var(--display); font-size: 16px; font-weight: 600; line-height: 1.2; }
-  .note .meta { font-size: 11.5px; color: var(--ink-dim); line-height: 1.45; }
+  .mast .note { max-height: calc(100vh - 150px); overflow-y: auto; scrollbar-width: thin; }
+  .note strong { font-family: var(--display); font-size: 18px; font-weight: 600; line-height: 1.2; }
+  .note .meta { font-size: 13px; color: var(--ink-dim); line-height: 1.5; }
   .note-more {
     appearance: none;
     justify-self: start;
@@ -538,6 +548,20 @@
   }
   .note-more:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
 
+
+  .note-close {
+    appearance: none;
+    justify-self: start;
+    display: inline-flex; align-items: center; gap: 4px;
+    background: none; border: 0;
+    margin: -2px 0 2px -4px; padding: 4px 8px 4px 2px;
+    color: var(--teal);
+    font: inherit; font-size: 13px;
+    cursor: pointer;
+    border-radius: 3px;
+  }
+  .note-close svg { width: 18px; height: 18px; }
+  .note-close:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; }
   /* ---------- itinéraire ---------- */
   .route-box {
     margin-top: 8px;
@@ -630,7 +654,7 @@
   .go svg { width: 17px; height: 17px; flex: 0 0 auto; }
   .go:hover { filter: brightness(1.08); }
   .go:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
-  .route-hint { font-size: 10.5px; color: var(--ink-faint); line-height: 1.4; }
+  .route-hint { font-size: 12px; color: var(--ink-faint); line-height: 1.45; }
 
   .route-figs {
     display: flex;
@@ -640,8 +664,8 @@
   .route-figs span {
     display: grid;
     gap: 1px;
-    font-size: 9.5px;
-    letter-spacing: 0.08em;
+    font-size: 11px;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--ink-faint);
   }
@@ -654,13 +678,13 @@
     color: var(--teal);
     font-variant-numeric: tabular-nums;
   }
-  .ghost.tiny { font-size: 10.5px; padding: 4px 8px; }
+  .ghost.tiny { font-size: 12px; padding: 6px 10px; }
   .route-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 
   /* sélecteur de mode : deux grandes tuiles, pictogramme + durée */
   .mode-switch {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, 1fr);
     gap: 6px;
     width: 100%;
   }
@@ -679,7 +703,7 @@
     transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
   }
   .mode-ic { width: 22px; height: 22px; display: block; opacity: 0.8; }
-  .mode span { font-size: 10.5px; letter-spacing: 0.02em; }
+  .mode span { font-size: 11.5px; letter-spacing: 0.01em; line-height: 1.2; text-align: center; }
   .mode em {
     font-family: var(--mono);
     font-style: normal;
@@ -882,6 +906,105 @@
   .fab-ar svg { width: 22px; height: 22px; }
   .fab-ar:hover, .fab-ar:active { border-color: var(--teal); color: var(--teal); }
   .fab-ar:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+
+
+  /* ---------- accueil : la formation d'abord ---------- */
+  .welcome-lead { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--ink-dim); }
+  .fac-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 4px; }
+  .fac {
+    appearance: none;
+    text-align: left;
+    background: rgba(237, 240, 234, 0.04);
+    border: 1px solid var(--edge-strong);
+    border-radius: 5px;
+    color: var(--ink);
+    font: inherit; font-size: 13.5px; line-height: 1.3;
+    padding: 11px 12px;
+    min-height: 48px;
+    cursor: pointer;
+  }
+  .fac:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .fac:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .fac.is-on { border-color: var(--accent); background: var(--accent-soft); }
+  .pref-pmr {
+    display: flex; gap: 11px; align-items: flex-start;
+    margin-top: 4px;
+    padding: 11px 12px;
+    border: 1px solid var(--edge);
+    border-radius: 5px;
+    background: rgba(204, 168, 255, 0.07);
+    cursor: pointer;
+    font-size: 12.5px; line-height: 1.45; color: var(--ink-dim);
+  }
+  .pref-pmr b { display: block; color: var(--ink); font-size: 13.5px; font-weight: 600; }
+  .pref-pmr input { width: 22px; height: 22px; margin: 1px 0 0; flex: 0 0 auto; accent-color: #cca8ff; }
+  .pref-pmr:focus-within { outline: 2px solid #cca8ff; outline-offset: 2px; }
+  .welcome-foot { display: grid; gap: 8px; margin-top: 2px; }
+  .welcome-foot .ghost { justify-self: start; }
+
+  /* ---------- liste : l'essentiel avant les campus ---------- */
+  .nav-item.is-quick .ni-name { font-weight: 600; }
+  .nav-item.is-fac { border-left-color: var(--accent); }
+  .nav-item.is-aide .ni-name::before {
+    content: "";
+    display: inline-block;
+    width: 8px; height: 8px; margin-right: 7px;
+    border-radius: 50%;
+    background: #cca8ff;
+    vertical-align: 1px;
+  }
+
+  /* ---------- accessibilité dans la fiche ---------- */
+  .lien {
+    appearance: none; background: none; border: 0; padding: 0;
+    font: inherit; color: var(--teal);
+    text-decoration: underline; text-underline-offset: 2px;
+    cursor: pointer;
+  }
+  .lien:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+  .acces-msg {
+    margin: 0; width: 100%;
+    font-size: 12.5px; line-height: 1.5; color: var(--ink-dim);
+    padding: 8px 10px;
+    border-radius: 4px;
+    background: rgba(242, 179, 66, 0.08);
+    border: 1px solid rgba(242, 179, 66, 0.25);
+  }
+  .acces-msg.acces-pmr { background: rgba(204, 168, 255, 0.08); border-color: rgba(204, 168, 255, 0.3); }
+  .acces-msg span { display: block; margin-top: 3px; font-size: 11.5px; color: var(--ink-faint); }
+  .acces-msg a { color: var(--teal); }
+  .mode[data-mode="pmr"][aria-pressed="true"] { border-color: #cca8ff; background: rgba(204, 168, 255, 0.14); }
+  .mode[data-mode="pmr"][aria-pressed="true"] .mode-ic,
+  .mode[data-mode="pmr"][aria-pressed="true"] em { color: #cca8ff; }
+  .acces { margin-top: 6px; border-top: 1px solid var(--edge); padding-top: 7px; }
+  .acces summary {
+    cursor: pointer; list-style: none;
+    display: flex; align-items: center; gap: 7px;
+    font-size: 12.5px; font-weight: 600; color: var(--ink);
+  }
+  .acces summary::-webkit-details-marker { display: none; }
+  .acces summary::after { content: "+"; margin-left: auto; color: var(--ink-faint); font-weight: 400; }
+  .acces[open] summary::after { content: "−"; }
+  .acces summary:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+  .acces-ic { width: 18px; height: 18px; color: #cca8ff; flex: 0 0 auto; }
+  .acces p { margin: 6px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--ink-dim); }
+  .acces ul { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 5px; }
+  .acces li { font-size: 12.5px; line-height: 1.45; color: var(--ink-dim); }
+  .acces li b { display: block; color: var(--ink); font-weight: 500; font-size: 11.5px; }
+  .aide { display: grid; gap: 8px; margin-top: 6px; font-size: 12.5px; color: var(--ink-dim); line-height: 1.45; }
+  .aide-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+  .aide-actions .go { text-decoration: none; }
+  .aide-actions .ghost { text-decoration: none; display: inline-block; }
+
+  /* ---------- réglages d'affichage, repliés ---------- */
+  .affichage { flex: 1 1 auto; }
+  .affichage summary {
+    cursor: pointer;
+    font-size: 12.5px; color: var(--ink-dim);
+    padding: 4px 0;
+  }
+  .affichage summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .affichage-body { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; padding-top: 8px; }
 
   @media (max-width: 760px) {
     .overlay {
@@ -1099,8 +1222,8 @@
       gap: 10px 12px;
     }
     .sheet .toggles { flex: 1 1 100%; }
-    .sheet .ghost { font-size: 11.5px; padding: 8px 12px; white-space: nowrap; }
-    .sheet .ghost.tiny { padding: 7px 11px; font-size: 11px; }
+    .sheet .ghost { font-size: 13px; padding: 10px 13px; white-space: nowrap; }
+    .sheet .ghost.tiny { padding: 9px 12px; font-size: 12.5px; }
     .sheet .mode { padding: 11px 6px 12px; }
     .sheet .mode em { font-size: 19px; }
     .sheet .mode-ic { width: 24px; height: 24px; }
@@ -1114,7 +1237,9 @@
     .sheet input[type="range"]::-moz-range-thumb { width: 20px; height: 20px; }
     .sheet #readout { margin-left: 0; flex-basis: 100%; }
     .sheet .credit { flex-basis: 100%; }
-    #navStatus { font-size: 10.5px; }
+    #navStatus { font-size: 12.5px; }
+
+    .fac { min-height: 46px; }
 
     /* bouton d'action flottant : la position, à portée de pouce */
     .fab {
@@ -1166,7 +1291,7 @@ img { max-width: 100%; } [hidden] { display: none !important; }</style>
         <h1>Plan du campus</h1>
       </div>
       <span class="rule"></span>
-      <p>Les campus de l’Università di Corsica Pasquale Paoli à Corte, en relief réel. Appui long sur la carte pour poser un départ.</p>
+      <p>Cherchez ou touchez un bâtiment de l’Università di Corsica à Corte : le plan vous y emmène, à pied, sans marches ou en voiture.</p>
     </div>
     <div class="note" id="placeNote"></div>
   </div>
@@ -1178,13 +1303,13 @@ img { max-width: 100%; } [hidden] { display: none !important; }</style>
           <circle cx="11" cy="11" r="6.4"/><path d="M15.8 15.8 21 21" stroke-linecap="round"/>
         </svg>
         <input id="find" type="search" autocomplete="off" autocorrect="off" spellcheck="false"
-               placeholder="Bâtiment, salle, RU, gare…" aria-label="Rechercher un lieu">
+               placeholder="Bâtiment, salle, BU, RU, handicap…" aria-label="Rechercher un lieu">
         <button class="find-clear" id="findClear" type="button" aria-label="Effacer la recherche" hidden>&times;</button>
       </div>
       <div class="cats" id="cats" role="group" aria-label="Catégorie affichée sur le plan"></div>
     </div>
     <div class="rail-head">
-      <span class="eyebrow" id="listHead">Campus &amp; repères</span>
+      <span class="eyebrow" id="listHead">L’essentiel</span>
       <button class="rail-fold" id="railFold" type="button" aria-expanded="true" aria-controls="nav">
         <span id="railFoldTxt">Masquer</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true">
@@ -1194,26 +1319,31 @@ img { max-width: 100%; } [hidden] { display: none !important; }</style>
     </div>
     <div id="nav"></div>
     <div class="rail-foot">
-      <button class="ghost" id="btnOverview" type="button">Vue d’ensemble</button>
-      <button class="ghost" id="btnLocate" type="button">Ma position</button>
-      <button class="ghost" id="btnStart" type="button" aria-pressed="false">Départ manuel</button>
-      <p id="navStatus">Activez la position, puis choisissez un site.</p>
+      <button class="ghost" id="btnOverview" type="button">Tout le campus</button>
+      <button class="ghost" id="btnLocate" type="button">Me localiser</button>
+      <button class="ghost" id="btnStart" type="button" aria-pressed="false">Choisir un départ sur la carte</button>
+      <p id="navStatus" role="status" aria-live="polite">Touchez « Me localiser », puis un bâtiment.</p>
     </div>
   </div>
 
   <div class="strip">
-    <div class="toggles">
-      <button class="ghost" id="tBuildings" type="button" aria-pressed="true">Bâti</button>
-      <button class="ghost" id="tRoads" type="button" aria-pressed="true">Voirie</button>
-      <button class="ghost" id="tLabels" type="button" aria-pressed="true">Étiquettes</button>
-      <button class="ghost" id="tOrbit" type="button" aria-pressed="true">Orbite auto</button>
-    </div>
-    <div class="sun">
-      <label for="hour">Heure</label>
-      <input type="range" id="hour" min="6" max="20" step="0.1" value="17.3">
-      <output id="hourOut">17:18</output>
-    </div>
-    <span id="readout">—</span>
+    <details class="affichage">
+      <summary>Affichage de la carte</summary>
+      <div class="affichage-body">
+        <div class="toggles">
+          <button class="ghost" id="tBuildings" type="button" aria-pressed="true">Bâtiments</button>
+          <button class="ghost" id="tRoads" type="button" aria-pressed="true">Rues</button>
+          <button class="ghost" id="tLabels" type="button" aria-pressed="true">Noms</button>
+          <button class="ghost" id="tOrbit" type="button" aria-pressed="false">Rotation lente</button>
+        </div>
+        <div class="sun">
+          <label for="hour">Lumière</label>
+          <input type="range" id="hour" min="6" max="20" step="0.1" value="17.3">
+          <output id="hourOut">17:18</output>
+        </div>
+        <span id="readout">—</span>
+      </div>
+    </details>
     <span class="credit">Données <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> · relief Terrarium (Mapzen / AWS)</span>
   </div>
 </div>
@@ -1234,7 +1364,7 @@ img { max-width: 100%; } [hidden] { display: none !important; }</style>
 
 <div id="holdRing" data-on="false" aria-hidden="true"></div>
 
-<button class="fab fab-ar" id="fabAr" type="button" aria-label="Viser un bâtiment à la boussole">
+<button class="fab fab-ar" id="fabAr" type="button" aria-label="Repérer les bâtiments avec la caméra" title="Repérer les bâtiments avec la caméra">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <circle cx="6.9" cy="14.2" r="4.5"/>
@@ -1253,7 +1383,7 @@ img { max-width: 100%; } [hidden] { display: none !important; }</style>
   </svg>
 </button>
 
-<div class="ar" id="ar" hidden>
+<div class="ar" id="ar" data-camera="off" role="dialog" aria-modal="true" aria-label="Vue caméra" hidden>
   <video id="arVideo" playsinline muted autoplay></video>
   <div class="ar-sky" id="arSky"></div>
   <div class="ar-labels" id="arLabels"></div>
@@ -1265,18 +1395,15 @@ img { max-width: 100%; } [hidden] { display: none !important; }</style>
 
   <div class="ar-top">
     <button class="ar-close" id="arClose" type="button" aria-label="Fermer">&times;</button>
-    <div class="ar-modes" role="group" aria-label="Mode">
-      <button class="ar-mode" id="arBoussole" type="button" aria-pressed="true">Boussole</button>
-      <button class="ar-mode" id="arCamera" type="button" aria-pressed="false">Caméra</button>
-    </div>
+    <span class="ar-titre">Vue caméra · levez le téléphone</span>
   </div>
 
-  <div class="ar-choixs" id="arChoix"></div>
-
   <div class="ar-hud">
+    <div class="ar-choixs" id="arChoix" role="group" aria-label="Bâtiments proches"></div>
     <div class="ar-cible" id="arCible">—</div>
     <div class="ar-dist" id="arDist"></div>
-    <div class="ar-etat" id="arEtat"></div>
+    <div class="ar-etat" id="arEtat" role="status" aria-live="polite"></div>
+    <button class="ar-retry" id="arRetry" type="button" hidden>Autoriser la caméra</button>
     <div class="ar-recal">
       <label for="arOffset">Recaler le cap</label>
       <input type="range" id="arOffset" min="-45" max="45" step="1" value="0">
@@ -1285,18 +1412,23 @@ img { max-width: 100%; } [hidden] { display: none !important; }</style>
   </div>
 </div>
 
-<div class="welcome" id="welcome" hidden>
+<div class="welcome" id="welcome" role="dialog" aria-modal="true" aria-labelledby="welcomeTitle" hidden>
   <div class="welcome-card">
     <span class="eyebrow">Bienvenue à Corte</span>
-    <h2>Trouver son bâtiment</h2>
-    <ol>
-      <li><b>Cherchez</b> un nom : « Desanti », « RU », « bibliothèque », « gare ».</li>
-      <li><b>Touchez un bâtiment</b> sur le plan pour l’ouvrir.</li>
-      <li><b>Activez votre position</b> : le temps de marche et le dénivelé s’affichent.</li>
-    </ol>
-    <p class="welcome-note">Gardez le doigt appuyé sur le plan pour poser un départ où vous voulez.
-      Votre position reste sur votre téléphone.</p>
-    <button class="go" id="welcomeGo" type="button">C’est parti</button>
+    <h2 id="welcomeTitle">Où avez-vous cours&nbsp;?</h2>
+    <p class="welcome-lead">Choisissez votre formation : le plan vous montre votre bâtiment.
+      Vous pourrez changer plus tard avec « Mes cours ».</p>
+    <div class="fac-grid" id="facGrid" role="group" aria-label="Votre formation"></div>
+    <label class="pref-pmr">
+      <input type="checkbox" id="prefPmr">
+      <span><b>Itinéraires sans marches</b>
+        Fauteuil, béquilles, poussette : le plan évite les escaliers et les fortes pentes.</span>
+    </label>
+    <div class="welcome-foot">
+      <button class="ghost" id="welcomeSkip" type="button">Je ne sais pas encore</button>
+      <p class="welcome-note">Touchez un bâtiment pour l’ouvrir, puis « Activer ma position » pour le trajet.
+        Votre position reste sur votre téléphone.</p>
+    </div>
   </div>
 </div>
 
@@ -1307,10 +1439,10 @@ img { max-width: 100%; } [hidden] { display: none !important; }</style>
   <p id="loadNote">Ouverture de la vallée…</p>
 </div>
 
-<script src="data.js?v17"></script>
-<script src="core.js?v17"></script>
-<script src="build.js?v17"></script>
-<script src="app.js?v17"></script>
+<script src="data.js?v18"></script>
+<script src="core.js?v18"></script>
+<script src="build.js?v18"></script>
+<script src="app.js?v18"></script>
 
 <script>
   /* Filet de sécurité. Un service worker d'une version antérieure peut
@@ -1320,7 +1452,7 @@ img { max-width: 100%; } [hidden] { display: none !important; }</style>
      portent bien la version attendue ; sinon elle se purge et recharge,
      une seule fois par session pour ne jamais boucler. */
   (function () {
-    var attendue = 'v17';
+    var attendue = 'v18';
     addEventListener('load', function () {
       setTimeout(function () {
         if (window.__PDC_BUILD === attendue) return;

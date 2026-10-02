@@ -11,14 +11,21 @@ Une page web, aucun serveur applicatif, aucun compte, aucune publicité, aucun t
 
 Vous arrivez à Corte et vous cherchez votre premier cours.
 
+- **Dites où vous avez cours.** À la première ouverture, le plan demande votre formation (droit,
+  lettres, IAE, sciences, santé, IUT, Paoli Tech, INSPÉ) et vous montre votre bâtiment. Il reste
+  ensuite en tête de liste sous **Mes cours**, avec la BU, le RU et le bureau handicap.
 - **Cherchez un nom.** « Desanti », « RU », « BU », « IUT », « gare », « courses » : le champ de
   recherche connaît les bâtiments universitaires, les sigles, et 150 lieux de la ville. Pas besoin
   des accents ni de l'orthographe exacte — « batiment desanti » suffit.
 - **Touchez un bâtiment sur le plan.** Il s'ouvre, avec son nom et sa description.
 - **Filtrez ce que vous voyez.** Université, Manger, Se déplacer, Services, Sport, Vivre :
   les noms s'affichent sur le plan par catégorie.
-- **Savoir combien de temps ça prend.** Durée à pied *et* en voiture côte à côte, distance,
-  dénivelé, heure d'arrivée. À Corte, le dénivelé n'est pas un détail.
+- **Savoir combien de temps ça prend.** Durée à pied, **sans marches** et en voiture côte à côte,
+  distance, dénivelé, heure d'arrivée. À Corte, le dénivelé n'est pas un détail.
+- **Un trajet sans escaliers.** Fauteuil, béquilles, poussette, grosse valise : le mode
+  *Sans marches* évite les escaliers et les fortes pentes. Cochez-le à l'accueil, il est retenu.
+  À pied, la fiche prévient quand le trajet passe par un escalier.
+- **Revenir en arrière.** Le bouton **Retour** en haut de chaque fiche ramène à la recherche.
 - **Poser un départ où l'on veut.** Gardez le doigt appuyé une demi-seconde sur le plan.
   Ou touchez le bouton de position pour partir d'où vous êtes.
 - **Sans réseau.** Une fois la page ouverte, tout est en mémoire : le relief, les rues, les
@@ -37,27 +44,36 @@ Vous arrivez à Corte et vous cherchez votre premier cours.
 
 ### Trouver un bâtiment en levant les yeux
 
-Facultatif, et rien ne change tant qu'on n'y touche pas : le plan reste exactement ce qu'il
-était. Une **pastille en forme de lunettes**, en bas à droite de la carte, ouvre deux modes.
-Ni la caméra ni la boussole ne sont sollicitées avant cette action.
+Facultatif, et rien ne change tant qu'on n'y touche pas. La **pastille en forme de lunettes**, en
+bas à droite de la carte, ouvre la **vue caméra** : l'image réelle, avec les noms posés sur les
+bâtiments et une petite flèche vers celui que vous cherchez. Un nom **en pointillé** signale un
+bâtiment qui est là, dans cette direction, mais **caché** par une colline ou par le pâté de
+maisons devant vous. Ni la caméra ni l'orientation du téléphone ne sont sollicitées avant.
 
-- **Boussole** — une grosse flèche vers le bâtiment choisi, la distance, l'azimut. Elle passe au
-  turquoise quand vous êtes dans l'axe. Rien d'autre à comprendre, et ça marche même quand la
-  boussole du téléphone est approximative.
-- **Caméra** — la vue réelle, avec les noms posés sur les bâtiments. Un nom **en pointillé**
-  signale un bâtiment qui est là, dans cette direction, mais **caché** par une colline ou par le
-  pâté de maisons devant vous : l'application connaît le relief et la hauteur du bâti, elle ne
-  fait pas flotter les noms au travers des murs.
+Les sites les plus proches s'affichent en pastilles au bas de l'écran ; un nom se touche
+directement pour devenir la cible. Si la caméra est refusée, les noms et la flèche restent
+utilisables et un bouton permet de redemander l'accès.
 
-Une fois dedans, tout se fait sans ressortir : les sites les plus proches s'affichent en
-pastilles au bas de l'écran, et en vue caméra un nom se touche directement pour devenir la cible.
-L'écran ne s'éteint pas pendant que vous tenez le téléphone levé, et le plan en relief se met en
-veille derrière — sans quoi caméra, GPS, boussole et rendu 3D simultanés feraient chauffer
-l'appareil pour rien.
+L'orientation d'un téléphone dérive facilement de 10 à 20°. Si les noms semblent décalés,
+faites un 8 avec le téléphone, ou corrigez avec le curseur **Recaler le cap**.
 
-La boussole d'un téléphone dérive facilement de 10 à 20°, davantage entre les murs de la
-citadelle ou près des voitures. Si les noms semblent décalés, le curseur **Recaler le cap**
-corrige l'écart. Faites d'abord un 8 avec le téléphone, cela suffit souvent.
+### Étudiants en situation de handicap
+
+Le plan intègre le **schéma directeur pluriannuel du handicap 2023-2027** de l'université :
+
+- le **bureau d'accompagnement** (bâtiment Desanti, niveau 0) est une destination à part entière —
+  tapez « handicap », « PMR » ou « tiers-temps » — avec ses horaires, un bouton pour appeler, un
+  pour écrire, et le lien vers le schéma directeur ;
+- chaque bâtiment universitaire a un volet **Accessibilité** : entrée de plain-pied, ascenseur,
+  toilettes adaptées, places réservées, dès que l'établissement les renseigne (voir plus bas).
+  Tant que ce n'est pas fait, le volet renvoie vers le bureau plutôt que d'afficher
+  « accessible » sans vérification ;
+- l'interface elle-même : textes agrandis et contrastes relevés, boutons nommés pour les
+  lecteurs d'écran, rotation automatique de la carte désactivée, animation d'ouverture supprimée
+  quand le téléphone demande de réduire les animations.
+
+Les pentes du mode *Sans marches* sont **estimées** à partir d'un relief échantillonné tous les
+30 m : un ordre de grandeur, pas un relevé. Les escaliers sont ceux qu'OpenStreetMap connaît.
 
 ### L'installer sur son téléphone
 
@@ -73,7 +89,7 @@ L'icône apparaît avec les autres applications et le plan s'ouvre en plein écr
 
 La position n'est demandée que si vous appuyez sur le bouton, elle **ne quitte jamais le
 téléphone** et n'est pas conservée : l'itinéraire est calculé sur place, dans le navigateur.
-La caméra n'est allumée que dans le mode du même nom, et l'image **n'est ni enregistrée ni
+La caméra n'est allumée que dans la vue caméra, et l'image **n'est ni enregistrée ni
 transmise** : elle sert de fond d'écran, rien de plus, et s'éteint dès que vous fermez la vue.
 La page n'émet aucune requête à l'exécution — la seule exception est le chargement des polices
 depuis Google Fonts, que l'on peut supprimer (voir plus bas).
@@ -112,7 +128,7 @@ Servir `sw.js` depuis la racine du site, sinon la portée du service worker ne c
 
 ### Après une modification
 
-**Incrémenter `VERSION` en tête de `sw.js`** (`v12` → `v13`), puis régénérer la page avec
+**Incrémenter `VERSION` en tête de `sw.js`** (`v18` → `v19`), puis régénérer la page avec
 l'outil de construction. C'est le seul geste à retenir : la version se propage ensuite toute
 seule dans les adresses des scripts (`app.js?v13`) et dans le marqueur que la page relit.
 
@@ -161,6 +177,28 @@ Pour voir à quoi ressemble la fonction avant d'avoir les vraies données, `sall
 contient trois salles fictives : mettez `salles.json` de côté, renommez l'exemple, rechargez.
 **Ne pas mettre ce fichier d'exemple en production** — il décrirait des salles qui n'existent pas.
 
+### Renseigner l'accessibilité des bâtiments
+
+Même principe que les salles : `accessibilite.json` est vide au départ et l'application
+fonctionne sans. Une entrée par bâtiment, tous les champs facultatifs sauf le nom :
+
+```json
+{ "batiment": "Bâtiment Jean-Toussaint Desanti",
+  "entree": "Entrée principale de plain-pied, côté parvis",
+  "ascenseur": "Oui, dessert tous les niveaux",
+  "sanitaires": "Rez-de-chaussée, près de l'accueil",
+  "stationnement": "2 places réservées devant l'entrée",
+  "info": "Boucle magnétique à l'accueil" }
+```
+
+`batiment` reprend un nom de la liste `_batiments` de `salles.json`. Les salles héritent de la
+fiche de leur bâtiment. C'est le travail naturel du service patrimoine et du bureau
+d'accompagnement au titre du schéma directeur ; l'exemple du fichier est fictif.
+Pensez ensuite à incrémenter `VERSION` dans `sw.js`.
+
+Les coordonnées du bureau d'accompagnement (téléphone, courriel, horaires) sont dans la
+constante `AIDE`, en tête de la partie recherche de `app.js`.
+
 ### Ajouter ou corriger un site
 
 Tout part d'OpenStreetMap. Si un bâtiment manque ou porte le mauvais nom, le corriger dans OSM
@@ -195,6 +233,7 @@ parfaitement lisible hors ligne, simplement avec une autre typographie.
 | `app.js` | nuanceurs GLSL, carte d'ombre, boucle de rendu, caméra, interactions |
 | `salles.json` | annuaire des salles, tenu par l'établissement (vide au départ) |
 | `salles.exemple.json` | même format, avec trois salles fictives pour essayer |
+| `accessibilite.json` | accès en fauteuil, ascenseurs, places réservées, par bâtiment (vide au départ) |
 | `sw.js`, `manifest.webmanifest`, `icons/` | installation et fonctionnement hors ligne |
 | `tools/build-data.mjs` | régénère `data.js` depuis OpenStreetMap et les tuiles d'élévation |
 | `tools/routecheck.mjs` | banc d'essai du calcul d'itinéraire, hors navigateur |
