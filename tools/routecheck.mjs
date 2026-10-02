@@ -11,7 +11,7 @@ const { field, feats } = scene;
 const buildGraph = vm.runInContext('buildGraph', ctx);
 const routePoints = vm.runInContext('routePoints', ctx);
 
-for (const mode of ['walk', 'drive']) {
+for (const mode of ['walk', 'pmr', 'drive']) {
   const t0 = Date.now();
   const G = buildGraph(feats, field, mode);
   const tg = Date.now() - t0;
@@ -25,7 +25,7 @@ for (const mode of ['walk', 'drive']) {
       // départs tirés dans la cuvette urbaine
       const from = { x: -700 + rnd() * 1500, y: -900 + rnd() * 1700 };
       const t1 = Date.now();
-      const r = routePoints(G, from, p, mode === 'walk' ? 1.7 : 14, 4);
+      const r = routePoints(G, from, p, mode === 'drive' ? 14 : mode === 'pmr' ? 1.0 : 1.7, 4);
       tSum += Date.now() - t1; n++;
       if (!r) { fail++; continue; }
       ok++;
