@@ -366,8 +366,12 @@
   .ar-arrow {
     position: absolute;
     left: 50%; top: 50%;
-    width: 96px; height: 96px;
-    top: 38%;
+    width: 84px; height: 84px;
+    /* juste au-dessus du panneau du bas, jamais sur l'horizon où se posent
+       les noms ; --ar-hud est mis à jour à chaque image */
+    top: auto;
+    bottom: calc(var(--ar-hud, 190px) + 14px);
+    transform: translateX(-50%);
     margin: 0;
     transform: translate(-50%, -50%);
     pointer-events: none;
@@ -1439,10 +1443,10 @@ img { max-width: 100%; } [hidden] { display: none !important; }</style>
   <p id="loadNote">Ouverture de la vallée…</p>
 </div>
 
-<script src="data.js?v18"></script>
-<script src="core.js?v18"></script>
-<script src="build.js?v18"></script>
-<script src="app.js?v18"></script>
+<script src="data.js?v19"></script>
+<script src="core.js?v19"></script>
+<script src="build.js?v19"></script>
+<script src="app.js?v19"></script>
 
 <script>
   /* Filet de sécurité. Un service worker d'une version antérieure peut
@@ -1452,7 +1456,7 @@ img { max-width: 100%; } [hidden] { display: none !important; }</style>
      portent bien la version attendue ; sinon elle se purge et recharge,
      une seule fois par session pour ne jamais boucler. */
   (function () {
-    var attendue = 'v18';
+    var attendue = 'v19';
     addEventListener('load', function () {
       setTimeout(function () {
         if (window.__PDC_BUILD === attendue) return;

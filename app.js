@@ -2339,6 +2339,8 @@ void main(){}`;
     if (but) ajoute({ id: but.id, name: but.name, x: but.x, y: but.y, uni: 2 }, true);
     for (const e of index) {
       if (e.kind === 'salle') continue;
+      // le bureau handicap est dans Desanti : son nom masquerait celui du campus
+      if (e.id === 'aide') continue;
       if (e.kind !== 'site' && e.cat !== cat) continue;
       ajoute(e, false);
     }
@@ -2360,8 +2362,12 @@ void main(){}`;
     const p = nav.pos;
     const boite = document.getElementById('ar');
     const W = boite.clientWidth, H = boite.clientHeight;
+    const hudEl = boite.querySelector('.ar-hud');
+    const hudH = hudEl ? hudEl.offsetHeight + 12 : 150;
+    if (hudH !== ar.hudH) { ar.hudH = hudH; boite.style.setProperty('--ar-hud', hudH + 'px'); }
 
     if (!p) { arEtat('Activez votre position pour viser un bâtiment.'); return; }
+    if (!ar.choixFaits) { ar.choixFaits = true; arChoix(); }   // la position vient d'arriver
     if (ar.sansCap || !ar.base) {
       /* Au bout de quelques secondes sans un seul événement d'orientation,
          c'est que l'appareil n'a pas de magnétomètre — un ordinateur de
@@ -2382,7 +2388,7 @@ void main(){}`;
     if (but) {
       const azim = (Math.atan2(but.x - p.x, but.y - p.y) * 180 / Math.PI + 360) % 360;
       let ecart = ((azim - ar.cap + 540) % 360) - 180;
-      fleche.style.transform = `translate(-50%, -50%) rotate(${ecart.toFixed(1)}deg)`;
+      fleche.style.transform = `translateX(-50%) rotate(${ecart.toFixed(1)}deg)`;
       boite.dataset.loin = String(Math.abs(ecart) > 25);
       document.getElementById('arCible').textContent = but.nom;
       document.getElementById('arDist').textContent =
@@ -2420,7 +2426,8 @@ void main(){}`;
       const sx = (arTmp[0] / arTmp[3] * 0.5 + 0.5) * W;
       const sy = (0.5 - arTmp[1] / arTmp[3] * 0.5) * H;
       // une étiquette à demi sortie de l'écran ne se lit pas : on la retire
-      if (sx < 8 || sx > W - 8 || sy < 46 || sy > H - 150) { el.style.display = 'none'; continue; }
+      // au-dessous : la flèche (84 px) puis le panneau ; au-dessus : la barre du haut
+      if (sx < 8 || sx > W - 8 || sy < 64 || sy > H - hudH - 104) { el.style.display = 'none'; continue; }
       let clash = false;
       for (const q of places_) if (Math.abs(q.sx - sx) < 96 && Math.abs(q.sy - sy) < 34) { clash = true; break; }
       if (clash && !c.but) { el.style.display = 'none'; continue; }
@@ -2520,6 +2527,7 @@ void main(){}`;
     if (!boite) return;
     boite.hidden = false;
     ar.ouvert = true;
+    ar.choixFaits = false;
     document.getElementById('arClose').focus();
     ar.sansCap = true;
     ar.depuis = performance.now();
