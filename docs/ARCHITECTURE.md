@@ -132,7 +132,7 @@ mène donc au bâtiment, l'étage étant donné dans la fiche.
 
 ---
 
-## Boussole et vue caméra
+## Vue caméra
 
 **Pourquoi pas WebXR.** Safari sur iPhone n'expose toujours pas les sessions `immersive-ar` en
 2026. Sur une population étudiante, un appareil sur deux aurait un écran noir. On compose donc à
@@ -161,7 +161,12 @@ l'immeuble contre lequel on se tient ne masque pas ce qu'on regarde — et exige
 bloqués d'affilée, pour qu'un coin de toit mal échantillonné ne suffise pas à déclarer une cible
 masquée.
 
-**Économie de l'appareil.** Le mode est facultatif : la pastille en forme de lunettes est la
+**Un seul mode.** L'ancien mode « boussole » (grande flèche sur fond uni) a été retiré en v18 :
+il doublait la vue caméra sans rien apporter de plus à un étudiant. La flèche subsiste, réduite,
+dans la vue caméra. Si `getUserMedia` est refusé, `data-camera="off"` affiche un fond neutre, les
+étiquettes restent placées par le cap, et `#arRetry` redemande l'accès.
+
+**Économie de l'appareil.** La vue est facultative : la pastille en forme de lunettes est la
 seule porte d'entrée, et ni la caméra ni le magnétomètre ne sont sollicités avant qu'on la
 touche. Une fois dedans, la boucle de rendu du plan se met en veille (`frame` sort
 immédiatement tant que `ar.ouvert`), et un `wakeLock` empêche l'écran de s'éteindre. Caméra,
@@ -172,6 +177,26 @@ téléphone qui chauffe.
 logiciel : les tests automatiques injectent des événements d'orientation connus et contrôlent le
 cap reconstruit (`artest.js`), ce qui valide la géométrie, pas le magnétomètre. Le reste se
 juge debout devant le bâtiment.
+
+---
+
+## Premiers pas et accessibilité
+
+**Accueil par la formation.** `FACS` (app.js) associe huit formations au nom d'un lieu
+d'OpenStreetMap ; le choix est retenu (`pdc-fac`) et ouvre la liste par **Mes cours**. La liste
+d'ouverture (`essentiels()`) donne ensuite BU, RU et bureau handicap avant les campus. Un lieu
+introuvable dans les données est simplement omis de l'accueil.
+
+**Bureau d'accompagnement.** Ajouté au démarrage comme site (`AIDE_PLACE`, coordonnées du bâtiment
+Desanti), avec ses alias de recherche et une fiche de contact (`AIDE`, `aideContact()`).
+
+**Fiches d'accessibilité.** `accessibilite.json` est chargé comme `salles.json` ; `accesPour()`
+rapproche une fiche d'un lieu par son nom, son nom alternatif ou, pour une salle, son bâtiment.
+
+**Interface.** `--ink-faint` relevé à 4,5:1 de contraste ; corps de texte ≥ 12 px ; fenêtres de
+dialogue (`role="dialog"`, focus déplacé à l'ouverture, Échap pour fermer) ; messages d'état en
+`aria-live` ; rotation automatique éteinte par défaut ; animation d'ouverture sautée sous
+`prefers-reduced-motion`.
 
 ---
 
@@ -381,18 +406,30 @@ itinéraire apparaît (`foldRail()`, bouton **Masquer / Afficher** dans l'en-tê
 Tant qu'aucun départ n'existe, la fiche montre un seul bouton — **Activer ma position** — plutôt
 qu'un message d'état : une action, une seule, au même endroit que le résultat.
 
-### Les deux modes
+### Les trois modes
 
-Le sélecteur de la fiche affiche les deux durées côte à côte — **à pied** et **en voiture** — et
-bascule le tracé d'un mode à l'autre. Chaque mode a son propre graphe, construit à la demande et
-mis en cache :
+Le sélecteur de la fiche affiche les trois durées côte à côte — **à pied**, **sans marches** et
+**en voiture** — et bascule le tracé d'un mode à l'autre. Chaque mode a son propre graphe,
+construit à la demande et mis en cache :
 
-| | à pied | en voiture |
-|---|---|---|
-| voies retenues | tout sauf autoroutes et voies rapides | tout sauf voies piétonnes, escaliers, chemins et accès privés |
-| sens uniques | ignorés | respectés (`oneway`, ronds-points) |
-| coût d'un arc | temps de Tobler, fonction de la pente réelle | longueur ÷ vitesse effective de la classe (`CAR_SPEED`) |
-| dénivelé affiché | oui | non |
+| | à pied | sans marches | en voiture |
+|---|---|---|---|
+| voies retenues | tout sauf autoroutes et voies rapides | idem, **sans les escaliers** (`highway=steps`) | tout sauf voies piétonnes, escaliers, chemins et accès privés |
+| sens uniques | ignorés | ignorés | respectés (`oneway`, ronds-points) |
+| coût d'un arc | temps de Tobler, fonction de la pente réelle | temps à 1 m/s ralenti par la pente × pénalité de pente (`pmrSlopePen`) × confort de la voie (`PMR_PEN`) | longueur ÷ vitesse effective de la classe (`CAR_SPEED`) |
+| durée affichée | coût de l'arc | temps réel `e.t`, distinct du coût | coût de l'arc |
+| dénivelé affiché | oui | oui, plus la longueur en pente > 8 % | non |
+
+Les seuils de pente reprennent l'arrêté du 15 janvier 2007 sur la voirie accessible : 5 % sans
+limite, 8 % sur 2 m, 12 % sur 0,50 m. Sur un relief au pas de 30 m, une pente calculée au-delà
+de 8 % signale un passage à éviter, pas une mesure ; la fiche le dit. En mode à pied, `findRoute`
+compte les volées d'escalier traversées (`stairs`, arcs marqués `st`) et la fiche propose alors
+le trajet sans marches. Le choix à pied / sans marches est retenu (`localStorage`, clé `pdc-mode`).
+
+Banc d'essai (`routecheck.mjs`) : 131/132 trajets sans marches aboutissent ; le seul échec part
+d'un point que seul un escalier relie au réseau, et la tuile est alors grisée. Depuis la gare, la
+place Paoli ou le campus Mariani, le trajet sans marches fait 20 à 60 % de distance en plus quand
+le chemin piéton coupe par les escaliers de la vieille ville.
 
 Les raccords entre le point réel et le réseau sont comptés à la vitesse de marche dans les deux
 cas : on rejoint toujours sa voiture à pied.
