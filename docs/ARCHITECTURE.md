@@ -187,6 +187,13 @@ d'OpenStreetMap ; le choix est retenu (`pdc-fac`) et ouvre la liste par **Mes co
 d'ouverture (`essentiels()`) donne ensuite BU, RU et bureau handicap avant les campus. Un lieu
 introuvable dans les données est simplement omis de l'accueil.
 
+**Parcours dédiés.** `parcours.json` est chargé au démarrage ; `integrerParcours()` résout chaque
+étape (salle, lieu nommé, bâtiment ou coordonnées), crée les lieux manquants — ajoutés à l'index
+sous le genre `parc`, donc cherchables par tous — et lit le parcours actif dans l'ancre de l'adresse
+(`#intervenants`) ou, à défaut, dans `localStorage` (`pdc-parcours`). Parcours actif : la liste
+d'ouverture est remplacée par les étapes (`rendreParcours()`), leurs étiquettes passent avant les
+autres sur le plan (`p.parc`), et la fiche propose le départ du parcours (`departParcours()`).
+
 **Bureau d'accompagnement.** Ajouté au démarrage comme site (`AIDE_PLACE`, coordonnées du bâtiment
 Desanti), avec ses alias de recherche et une fiche de contact (`AIDE`, `aideContact()`).
 
