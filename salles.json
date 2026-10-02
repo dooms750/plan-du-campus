@@ -15,7 +15,6 @@
     "Exemple complet dans salles.exemple.json. Pour partir d'un tableur,",
     "exporter en CSV puis lancer : node tools/salles-csv.mjs salles.csv"
   ],
-
   "_batiments": [
     "Bâtiment Bonfiglio Guelfucci",
     "Bâtiment Culombu",
@@ -41,6 +40,20 @@
     "Paoli Tech · école d’ingénieurs",
     "Spaziu Natale Luciani"
   ],
-
-  "salles": []
+  "salles": [
+    {
+      "code": "005",
+      "batiment": "Bâtiment Marcelle Conrad",
+      "nom": "Salle de cours",
+      "etage": 0,
+      "info": "Au milieu du bâtiment."
+    },
+    {
+      "code": "006",
+      "batiment": "Bâtiment Marcelle Conrad",
+      "nom": "Salle de cours",
+      "etage": 0,
+      "info": "Au milieu du bâtiment."
+    }
+  ]
 }

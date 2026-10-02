@@ -1010,6 +1010,34 @@
   .affichage summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .affichage-body { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; padding-top: 8px; }
 
+
+  /* ---------- parcours dédiés ---------- */
+  .parc-intro { display: grid; gap: 8px; justify-items: start; padding: 10px 14px 12px; border-bottom: 1px solid var(--edge); }
+  .parc-intro p { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--ink-dim); }
+  .nav-group {
+    padding: 10px 14px 4px;
+    font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: #8fd3c6; font-weight: 600;
+  }
+  .parc-n {
+    display: inline-grid; place-items: center;
+    width: 20px; height: 20px; margin-right: 8px;
+    border-radius: 50%;
+    background: #8fd3c6; color: #06201c;
+    font-style: normal; font-size: 11px; font-weight: 700;
+    vertical-align: 1px;
+  }
+  .nav-item.is-parc-entree { border-left-color: #8fd3c6; }
+  .nav-item.is-parc-entree .ni-name::before {
+    content: "";
+    display: inline-block; width: 8px; height: 8px; margin-right: 7px;
+    border-radius: 2px; background: #8fd3c6; vertical-align: 1px;
+  }
+  .lab.lab-parc .txt { font-size: 11.5px; color: var(--ink); border-color: #8fd3c6; padding: 3px 7px 4px; }
+  .lab.lab-parc .dot { height: 16px; background: linear-gradient(to bottom, #8fd3c6, transparent); }
+  .welcome-parcours { display: flex; flex-wrap: wrap; gap: 6px; }
+  .welcome-parcours[hidden] { display: none; }
+
   @media (max-width: 760px) {
     .overlay {
       grid-template-rows: auto 1fr;
@@ -1193,6 +1221,8 @@
       background: var(--accent-soft);
     }
     .sheet[data-state="peek"] .ni-sub { display: none; }
+    .sheet[data-state="peek"] .nav-group,
+    .sheet[data-state="peek"] .parc-intro { display: none; }
     .sheet[data-state="open"] #nav { flex-direction: column; }
     .sheet[data-state="open"] .nav-item {
       border: 0;
@@ -1430,6 +1460,7 @@ img { max-width: 100%; } [hidden] { display: none !important; }</style>
     </label>
     <div class="welcome-foot">
       <button class="ghost" id="welcomeSkip" type="button">Je ne sais pas encore</button>
+      <div class="welcome-parcours" id="welcomeParcours" hidden></div>
       <p class="welcome-note">Touchez un bâtiment pour l’ouvrir, puis « Activer ma position » pour le trajet.
         Votre position reste sur votre téléphone.</p>
     </div>
@@ -1443,10 +1474,10 @@ img { max-width: 100%; } [hidden] { display: none !important; }</style>
   <p id="loadNote">Ouverture de la vallée…</p>
 </div>
 
-<script src="data.js?v19"></script>
-<script src="core.js?v19"></script>
-<script src="build.js?v19"></script>
-<script src="app.js?v19"></script>
+<script src="data.js?v20"></script>
+<script src="core.js?v20"></script>
+<script src="build.js?v20"></script>
+<script src="app.js?v20"></script>
 
 <script>
   /* Filet de sécurité. Un service worker d'une version antérieure peut
@@ -1456,7 +1487,7 @@ img { max-width: 100%; } [hidden] { display: none !important; }</style>
      portent bien la version attendue ; sinon elle se purge et recharge,
      une seule fois par session pour ne jamais boucler. */
   (function () {
-    var attendue = 'v19';
+    var attendue = 'v20';
     addEventListener('load', function () {
       setTimeout(function () {
         if (window.__PDC_BUILD === attendue) return;

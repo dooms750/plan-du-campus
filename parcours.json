@@ -1,0 +1,60 @@
+{
+  "_lisezmoi": [
+    "Parcours dédiés — à tenir par la faculté. Chaque parcours apparaît comme une option dans le plan",
+    "(accueil, liste « L'essentiel ») et s'ouvre directement par un lien : …/plan-du-campus/#<id>.",
+    "",
+    "Une étape désigne un lieu de l'une de ces quatre façons :",
+    "  salle     le code d'une salle de salles.json             « 005 »",
+    "  lieu      le nom exact d'un lieu déjà sur le plan        « Auchan Supermarché »",
+    "  batiment  un bâtiment du plan, pour un service qu'il abrite (avec « nom » et « sous »)",
+    "  x, y      une position en mètres depuis le centre du plan (est, nord), pour un lieu absent",
+    "            d'OpenStreetMap — à reporter ensuite dans OSM",
+    "",
+    "groupe  intitulé de rubrique (les étapes d'un même groupe se suivent)",
+    "nom     intitulé affiché ; sous : une ligne de précision ; note : le texte de la fiche",
+    "cat     catégorie de recherche pour un lieu ajouté : e université, b se déplacer, l sport, s services",
+    "",
+    "Après modification, incrémenter VERSION dans sw.js."
+  ],
+
+  "parcours": [
+    {
+      "id": "intervenants",
+      "titre": "Intervenants santé",
+      "sous": "Salles, administration et repères de la FSTS",
+      "intro": "Pour les intervenants extérieurs de la filière santé : où se garer, où enseigner, où trouver l’administration, et l’essentiel autour du campus Grimaldi.",
+      "depart": "parking-desanti",
+      "etapes": [
+        { "id": "parking-desanti", "groupe": "Arriver",
+          "nom": "Parking couvert du Desanti", "sous": "Parking souterrain · campus Grimaldi",
+          "note": "Parking couvert sous le bâtiment Jean-Toussaint Desanti. Départ conseillé pour rejoindre les salles à pied.",
+          "x": 18, "y": -235, "cat": "b", "alias": "parking couvert souterrain garer voiture stationnement desanti" },
+
+        { "groupe": "Enseigner", "salle": "005", "nom": "Salle 005", "sous": "Bâtiment Marcelle Conrad · rez-de-chaussée" },
+        { "groupe": "Enseigner", "salle": "006", "nom": "Salle 006", "sous": "Bâtiment Marcelle Conrad · rez-de-chaussée" },
+
+        { "id": "admin-fsts", "groupe": "Administration",
+          "nom": "Administration de la FSTS", "sous": "Bâtiment Culombu · rez-de-chaussée",
+          "note": "Secrétariat et administration de la Faculté des sciences, techniques et santé, au rez-de-chaussée du bâtiment Culombu.",
+          "batiment": "Bâtiment Culombu", "cat": "e",
+          "alias": "administration secretariat scolarite faculte fst fsts sante culombu" },
+
+        { "id": "castola", "groupe": "Repères",
+          "nom": "Piazza Vincent Castola", "sous": "Au cœur de la FSTS",
+          "note": "La place au milieu des bâtiments de la Faculté des sciences, techniques et santé.",
+          "x": 8, "y": -318, "cat": "e", "alias": "piazza place castola vincent fst fsts" },
+        { "id": "centre-examens", "groupe": "Repères",
+          "nom": "Centre des examens", "sous": "Campus Grimaldi · au sud du Culombu",
+          "note": "Le centre d’examens de l’université et son amphithéâtre, inaugurés en 2024.",
+          "x": 66, "y": -496, "cat": "e", "alias": "centre examens examen concours amphi stce" },
+
+        { "id": "stade", "groupe": "Autour du campus",
+          "nom": "Stade Santos Manfredi", "sous": "Stade de football",
+          "note": "Stade de football et piste d’athlétisme, au nord-est du campus Grimaldi.",
+          "x": 322, "y": 23, "cat": "l", "alias": "stade foot football terrain athletisme manfredi" },
+        { "groupe": "Autour du campus", "lieu": "Auchan Supermarché", "nom": "Supermarché", "sous": "Auchan, à l’est du campus Grimaldi" },
+        { "groupe": "Autour du campus", "lieu": "Centre Hospitalier Intercommunal Corte Tattone", "nom": "Hôpital", "sous": "Centre hospitalier Corte-Tattone" }
+      ]
+    }
+  ]
+}

@@ -1083,9 +1083,23 @@ void main(){}`;
   function makePoiLabels() {
     for (const L of poiEls) L.el.remove();
     poiEls = [];
+    const vus = new Set();
+    // étapes du parcours actif : toujours nommées sur le plan
+    if (parcoursActif) {
+      for (const q of parcoursActif.places) {
+        if (vus.has(q.place.id)) continue;
+        vus.add(q.place.id);
+        const el = document.createElement('button');
+        el.className = 'lab lab-poi lab-uni lab-parc';
+        el.innerHTML = `<span class="dot"></span><span class="txt">${q.nom}</span>`;
+        el.addEventListener('click', () => flyTo(q.place));
+        labelLayer.appendChild(el);
+        poiEls.push({ el, p: Object.assign({}, q.place, { kind: 'poi', uni: 1, parc: true }) });
+      }
+    }
     if (!cat) return;
     for (const e of index) {
-      if (e.kind === 'site' || e.kind === 'salle' || e.cat !== cat) continue;
+      if (e.kind === 'site' || e.kind === 'salle' || e.kind === 'parc' || e.cat !== cat || vus.has(e.place.id)) continue;
       const el = document.createElement('button');
       el.className = 'lab lab-poi' + (e.uni ? ' lab-uni' : '');
       el.innerHTML = `<span class="dot"></span><span class="txt">${e.name}</span>`;
@@ -1102,7 +1116,7 @@ void main(){}`;
     const cand = [];
     const list = labelEls.concat(poiEls);
     if (nav.pos && meLabel) {
-      meLabel.querySelector('.txt').textContent = nav.pos.source === 'gps' ? 'Vous êtes ici' : 'Départ';
+      meLabel.querySelector('.txt').textContent = nav.pos.source === 'gps' ? 'Vous êtes ici' : (nav.pos.nom ? 'Départ · ' + nav.pos.nom : 'Départ');
       list.push({ el: meLabel, p: { x: nav.pos.x, y: nav.pos.y, kind: 'me', id: '__me' } });
     } else if (meLabel) {
       hideLabel(meLabel);
@@ -1111,6 +1125,8 @@ void main(){}`;
       const { el, p } = L;
       el.classList.toggle('is-active', state.activePlace === p.id);
       if (!state.showLabels) { hideLabel(el); continue; }
+      // le départ porte déjà ce nom : pas de doublon d'étiquette
+      if (p.parc && nav.pos && nav.pos.nom === p.name) { hideLabel(el); continue; }
       const y = field.at(p.x, -p.y);
       M4.transform(tmp, matVP, p.x, y + (p.kind === 'campus' ? 42 : p.kind === 'me' ? 46 : 24), -p.y);
       if (tmp[3] <= 0) { hideLabel(el); continue; }
@@ -1121,8 +1137,8 @@ void main(){}`;
       /* Les bâtiments universitaires portent loin — c'est l'objet même de
          l'application. Les commerces n'apparaissent qu'une fois la caméra
          descendue, sinon la vallée se couvre de noms de boulangeries. */
-      const near = p.kind === 'poi' ? (p.uni ? 2400 : 950) : p.kind === 'place' ? 2000 : 9000;
-      const coupe = p.kind === 'poi' ? (p.uni ? 2600 : 1050) : p.kind === 'place' ? 2200 : 1e9;
+      const near = p.parc ? 4000 : p.kind === 'poi' ? (p.uni ? 2400 : 950) : p.kind === 'place' ? 2000 : 9000;
+      const coupe = p.parc ? 4500 : p.kind === 'poi' ? (p.uni ? 2600 : 1050) : p.kind === 'place' ? 2200 : 1e9;
       let op = clamp(1 - (d - near * 0.35) / near, 0, 1);
       if (d > coupe) op = 0;
       if (state.activePlace === p.id) op = 1;          // la destination reste lisible
@@ -1131,7 +1147,7 @@ void main(){}`;
       cand.push({
         L, sx, sy, op, d,
         pr: p.kind === 'me' ? -3 : (state.activePlace === p.id ? -2
-          : p.kind === 'campus' ? -1 : p.kind === 'poi' ? 2 : 1)
+          : p.parc ? -1.5 : p.kind === 'campus' ? -1 : p.kind === 'poi' ? 2 : 1)
       });
     }
     cand.sort((a, b) => a.pr - b.pr || a.d - b.d);
@@ -1492,7 +1508,7 @@ void main(){}`;
       const col = () => `rgb(${MODES[nav.mode].col.map(v => Math.round(Math.sqrt(v) * 255)).join(',')})`;
       const arrive = new Date(Date.now() + i.time * 1000);
       const hh = String(arrive.getHours()).padStart(2, '0') + 'h' + String(arrive.getMinutes()).padStart(2, '0');
-      const from = nav.pos.source === 'gps' ? 'Votre position' : 'Départ choisi';
+      const from = nav.pos.source === 'gps' ? 'Votre position' : (nav.pos.nom || 'Départ choisi');
 
       html += `<div class="route-box">
         <div class="trip">
@@ -1529,6 +1545,7 @@ void main(){}`;
           </svg>
           Activer ma position
         </button>
+        ${departParcours() && departParcours().id !== p.id ? `<button class="ghost" id="btnGoDepart" type="button">Partir du ${departParcours().name.replace(/^Parking/, 'parking')}</button>` : ''}
         <span class="route-hint">ou gardez le doigt appuyé sur la carte pour poser un départ où vous voulez</span>
       </div>`;
     }
@@ -1542,6 +1559,14 @@ void main(){}`;
     if (fermer) fermer.addEventListener('click', closeNote);
     const g = document.getElementById('btnGoLocate');
     if (g) g.addEventListener('click', locateMe);
+    const gd = document.getElementById('btnGoDepart');
+    if (gd) gd.addEventListener('click', () => {
+      const d = departParcours();
+      if (!d) return;
+      setPosition(d.x, d.y, 6, 'manuel');
+      nav.pos.nom = d.name;
+      computeRoute(p, true);
+    });
 
     /* « Lire la suite » n'apparaît que si le texte est réellement tronqué :
        inutile de proposer d'ouvrir la feuille pour deux lignes. */
@@ -1813,6 +1838,9 @@ void main(){}`;
           ? 'Aucune salle ni aucun lieu à ce nom. L’annuaire des salles se remplit dans <code>salles.json</code>.'
           : 'Rien à ce nom. Essayez « Desanti », « RU », « bibliothèque », « gare ».';
       }
+    } else if (parcoursActif) {
+      rendreParcours(el);
+      rows = [];
     } else {
       rows = index.filter(e => e.kind === 'site' && e.id !== 'aide');
       for (const r of essentiels()) el.appendChild(r);
@@ -1862,6 +1890,111 @@ void main(){}`;
     return FACS.find(f => f.id === id) || null;
   }
 
+  /* ---------- parcours dédiés ----------
+     Une option, pas un mode caché : un parcours remplace la liste
+     d'ouverture par ses étapes rangées par rubrique, affiche leurs noms sur
+     le plan et propose de partir de son point d'arrivée (le parking, pour
+     les intervenants). Il s'ouvre aussi par un lien : …/#intervenants. */
+  let parcours = [];
+  let parcoursActif = null;   // objet parcours, ou null
+
+  function integrerParcours() {
+    for (const pc of parcours) {
+      pc.places = [];
+      pc.etapes.forEach((et, k) => {
+        let place = null;
+        if (et.salle) {
+          place = objById.get('salle:' + et.salle) || null;
+        } else if (et.lieu) {
+          place = placeNamed(et.lieu);
+        } else if (et.batiment || (typeof et.x === 'number' && typeof et.y === 'number')) {
+          const bat = et.batiment ? placeNamed(et.batiment) : null;
+          const x = bat ? bat.x : et.x, y = bat ? bat.y : et.y;
+          if (x == null) return;
+          const id = 'parc:' + (et.id || pc.id + k);
+          place = { id, name: et.nom, sub: et.sous || '', note: et.note || '', kind: 'poi',
+            batiment: et.batiment, x, y, r: 300, phi: 0.44, theta: state.theta, lift: 22 };
+          objById.set(id, place);
+          // cherchable par tous, même hors du parcours
+          index.push({ id, name: et.nom, sub: et.sous || '', cat: et.cat || 'e', kind: 'parc',
+            x, y, uni: 1, key: fold(et.nom + ' ' + (et.sous || '') + ' ' + (et.alias || '')),
+            codes: null, place });
+        }
+        if (!place) return;   // lieu introuvable : l'étape est simplement omise
+        pc.places.push({ et, place, nom: et.nom || place.name, sous: et.sous || place.sub || '' });
+      });
+    }
+    let id = null;
+    const h = location.hash.replace('#', '');
+    if (h && parcours.some(p => p.id === h)) id = h;
+    else { try { id = localStorage.getItem('pdc-parcours'); } catch (_) {} }
+    parcoursActif = parcours.find(p => p.id === id) || null;
+    window.addEventListener('hashchange', () => {
+      const p = parcours.find(x => x.id === location.hash.replace('#', ''));
+      if (p) activerParcours(p);
+    });
+  }
+
+  function activerParcours(p) {
+    parcoursActif = p;
+    try { if (p) localStorage.setItem('pdc-parcours', p.id); else localStorage.removeItem('pdc-parcours'); } catch (_) {}
+    if (!p && /^#/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search);
+    const head = document.getElementById('listHead');
+    if (head && !query.trim()) head.textContent = p ? p.titre : 'L’essentiel';
+    renderList();
+    makePoiLabels();
+    if (p && p.places.length) {
+      // cadrage sur l'ensemble des étapes du campus (les repères lointains exceptés)
+      const pts = p.places.map(q => q.place).filter(q => Math.hypot(q.x - 40, q.y + 360) < 400);
+      if (pts.length) {
+        const cx = pts.reduce((a, q) => a + q.x, 0) / pts.length;
+        const cy = pts.reduce((a, q) => a + q.y, 0) / pts.length;
+        state.dTarget = [cx, field.at(cx, -cy) + 25, -cy];
+        state.dDist = 620; state.dPhi = 0.62; state.idle = 0; state.intro = false;
+      }
+      if (phoneLayout) setSheet('peek');
+    }
+  }
+
+  function rendreParcours(el) {
+    const p = parcoursActif;
+    const intro = document.createElement('div');
+    intro.className = 'parc-intro';
+    intro.innerHTML = `<p>${p.intro || ''}</p>`;
+    const quitter = document.createElement('button');
+    quitter.type = 'button';
+    quitter.className = 'ghost tiny';
+    quitter.textContent = 'Quitter le parcours';
+    quitter.addEventListener('click', () => activerParcours(null));
+    intro.appendChild(quitter);
+    el.appendChild(intro);
+    let groupe = null, n = 0;
+    for (const q of p.places) {
+      if (q.et.groupe && q.et.groupe !== groupe) {
+        groupe = q.et.groupe;
+        const g = document.createElement('div');
+        g.className = 'nav-group';
+        g.textContent = groupe;
+        el.appendChild(g);
+      }
+      n++;
+      const b = document.createElement('button');
+      b.className = 'nav-item is-parc';
+      b.type = 'button';
+      b.dataset.id = q.place.id;
+      b.innerHTML = `<span class="ni-name"><i class="parc-n">${n}</i>${q.nom}</span><span class="ni-sub">${q.sous}</span>`;
+      b.addEventListener('click', () => flyTo(q.place));
+      el.appendChild(b);
+    }
+  }
+
+  function departParcours() {
+    const p = parcoursActif;
+    if (!p || !p.depart) return null;
+    const q = p.places.find(x => (x.et.id || '') === p.depart);
+    return q ? q.place : null;
+  }
+
   function essentiels() {
     const out = [];
     const ligne = (nom, sous, onClick, cls, id) => {
@@ -1883,6 +2016,9 @@ void main(){}`;
     if (ru) ligne('RU', 'Restaurant universitaire', () => flyTo(ru), '', ru.id);
     const aide = objById.get('aide');
     if (aide) ligne('Handicap', 'Bureau d’accompagnement', () => flyTo(aide), 'is-aide', 'aide');
+    for (const pc of parcours) {
+      if (pc.places && pc.places.length) ligne(pc.titre, pc.sous || 'Parcours dédié', () => activerParcours(pc), 'is-parc-entree');
+    }
     return out;
   }
 
@@ -1906,6 +2042,21 @@ void main(){}`;
         flyTo(lieu);
       });
       grid.appendChild(b);
+    }
+    const autres = document.getElementById('welcomeParcours');
+    if (autres) {
+      autres.innerHTML = '';
+      for (const pc of parcours) {
+        if (!pc.places || !pc.places.length) continue;
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'ghost';
+        b.textContent = 'Je suis intervenant·e : ' + pc.titre.replace(/^Intervenants\s*/i, '').trim();
+        if (!/^Intervenants/i.test(pc.titre)) b.textContent = pc.titre;
+        b.addEventListener('click', () => { closeWelcome(); activerParcours(pc); });
+        autres.appendChild(b);
+      }
+      autres.hidden = !autres.childElementCount;
     }
     const pmr = document.getElementById('prefPmr');
     pmr.checked = nav.mode === 'pmr';
@@ -1957,7 +2108,7 @@ void main(){}`;
         query = find.value;
         if (findClear) findClear.hidden = !query;
         if (head) head.textContent = query.trim()
-          ? 'Résultats' : 'L’essentiel';
+          ? 'Résultats' : parcoursActif ? parcoursActif.titre : 'L’essentiel';
         renderList();
       };
       find.addEventListener('input', sync);
@@ -1986,7 +2137,8 @@ void main(){}`;
         nav.mode = m;
         if (nav.results) { drawRoute(); renderRouteBar(); const d = objById.get(nav.results.to); if (d) renderNote(d); }
       });
-      if (!vu) openWelcome();
+      // lien direct vers un parcours : pas d'accueil étudiant (le cadrage se fait en fin de boot)
+      if (!parcoursActif && !vu) openWelcome();
     }
     const foldBtn = document.getElementById('railFold');
     if (foldBtn) foldBtn.addEventListener('click', () =>
@@ -2155,6 +2307,16 @@ void main(){}`;
       const j = await r.json();
       const arr = Array.isArray(j) ? j : (j.batiments || []);
       return arr.filter(a => a && a.batiment);
+    } catch (_) { return []; }
+  }
+
+  /* Parcours dédiés (intervenants santé…) : fichier tenu par la faculté. */
+  async function loadParcours() {
+    try {
+      const r = await fetch('parcours.json', { cache: 'no-cache' });
+      if (!r.ok) return [];
+      const j = await r.json();
+      return (j.parcours || []).filter(p => p && p.id && Array.isArray(p.etapes));
     } catch (_) { return []; }
   }
 
@@ -2667,8 +2829,9 @@ void main(){}`;
 
       places = CORTE_DATA.places.map(p => ({ ...p }));
       places.push({ ...AIDE_PLACE });
-      [salles, acces] = await Promise.all([loadSalles(), loadAcces()]);
+      [salles, acces, parcours] = await Promise.all([loadSalles(), loadAcces(), loadParcours()]);
       buildIndex();
+      integrerParcours();
       makeLabels();
       buildUI();
       bindInput();
@@ -2691,6 +2854,7 @@ void main(){}`;
         state.target = state.dTarget.slice();
         state.intro = false;
       }
+      if (parcoursActif) activerParcours(parcoursActif);
       loader.classList.add('done');
       setTimeout(() => loader.remove(), 900);
       requestAnimationFrame(frame);

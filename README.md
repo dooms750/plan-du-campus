@@ -57,6 +57,19 @@ utilisables et un bouton permet de redemander l'accès.
 L'orientation d'un téléphone dérive facilement de 10 à 20°. Si les noms semblent décalés,
 faites un 8 avec le téléphone, ou corrigez avec le curseur **Recaler le cap**.
 
+### Parcours intervenants santé
+
+Une option pour les intervenants extérieurs de la filière santé, à ouvrir depuis la liste
+(**Intervenants santé**), depuis l'accueil, ou directement par le lien
+**https://dooms750.github.io/plan-du-campus/#intervenants** — c'est ce lien qu'il faut leur envoyer.
+
+La liste devient alors le parcours, en étapes numérotées : le **parking couvert du Desanti**,
+les **salles 005 et 006** (bâtiment Conrad, rez-de-chaussée), l'**administration de la FSTS**
+(Culombu, rez-de-chaussée), la **piazza Vincent Castola**, le **centre des examens**, puis le
+**stade**, le **supermarché** et l'**hôpital**. Leurs noms s'affichent sur le plan, et chaque fiche
+propose de **partir du parking couvert** quand on n'a pas activé sa position.
+« Quitter le parcours » ramène à la liste habituelle.
+
 ### Étudiants en situation de handicap
 
 Le plan intègre le **schéma directeur pluriannuel du handicap 2023-2027** de l'université :
@@ -177,6 +190,17 @@ Pour voir à quoi ressemble la fonction avant d'avoir les vraies données, `sall
 contient trois salles fictives : mettez `salles.json` de côté, renommez l'exemple, rechargez.
 **Ne pas mettre ce fichier d'exemple en production** — il décrirait des salles qui n'existent pas.
 
+### Modifier ou créer un parcours
+
+Les parcours sont décrits dans `parcours.json`, sans toucher au code. Une étape désigne un lieu
+par le code d'une salle (`"salle": "005"`), le nom d'un lieu du plan (`"lieu": "Auchan Supermarché"`),
+un bâtiment pour un service qu'il abrite (`"batiment": "Bâtiment Culombu"`), ou des coordonnées
+`x`/`y` en mètres pour un lieu absent d'OpenStreetMap — mode d'emploi en tête du fichier.
+Un nouveau parcours s'ajoute à la liste avec son propre `id`, et s'ouvre par `…/#<id>`.
+
+La **piazza Vincent Castola** n'existe pas dans OpenStreetMap : sa position (`x: 8, y: -318`) est
+estimée au milieu des bâtiments de la FSTS. Le plus durable serait de l'ajouter dans OSM.
+
 ### Renseigner l'accessibilité des bâtiments
 
 Même principe que les salles : `accessibilite.json` est vide au départ et l'application
@@ -233,6 +257,7 @@ parfaitement lisible hors ligne, simplement avec une autre typographie.
 | `app.js` | nuanceurs GLSL, carte d'ombre, boucle de rendu, caméra, interactions |
 | `salles.json` | annuaire des salles, tenu par l'établissement (vide au départ) |
 | `salles.exemple.json` | même format, avec trois salles fictives pour essayer |
+| `parcours.json` | parcours dédiés (intervenants santé), étapes et rubriques |
 | `accessibilite.json` | accès en fauteuil, ascenseurs, places réservées, par bâtiment (vide au départ) |
 | `sw.js`, `manifest.webmanifest`, `icons/` | installation et fonctionnement hors ligne |
 | `tools/build-data.mjs` | régénère `data.js` depuis OpenStreetMap et les tuiles d'élévation |
